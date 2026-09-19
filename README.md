@@ -194,7 +194,9 @@ quoted here that was not actually measured.
 
 ## Screenshots
 
-| Breed list — iOS (light) | Breed list — iOS (dark) |
+### Breed list — light and dark
+
+| iOS (light) | iOS (dark) |
 |---|---|
 | ![Breed list, light mode](assets/screenshots/01-breed-list-light.png) | ![Breed list, dark mode](assets/screenshots/02-breed-list-dark.png) |
 
@@ -202,15 +204,30 @@ quoted here that was not actually measured.
 
 ![Breed list on Android](assets/screenshots/07-breed-list-android.png)
 
-**Gallery with attribution** — author, licence and source are surfaced per
-image, as tappable links:
+### Filters
 
-![Gallery with attribution](assets/screenshots/05-gallery-attribution.png)
+Multi-select facets compose: selecting **Sporting + Large** narrows 283 breeds
+to 16, with the count updating live on the Apply button.
 
-Still to capture (see [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the exact
-steps): filters applied, the Traits tab, and the offline banner.
+| Filter sheet (2 facets active) | Result: every row is Sporting AND Large |
+|---|---|
+| ![Filters applied](assets/screenshots/03-filters-applied.png) | ![Filtered results](assets/screenshots/04-filtered-results.png) |
 
----
+### Breed details
+
+| Overview | Traits |
+|---|---|
+| ![Detail overview](assets/screenshots/06-details-overview.png) | ![Traits as visual scales](assets/screenshots/05-details-traits.png) |
+
+The Traits tab shows the ten 1-5 scores as segmented scales, and
+`exercise_minutes` as a **separate proportional bar labelled in real units**
+("1 hr/day") — it ranges 20-120 in the source data, so a 5-point scale would
+misrepresent it.
+
+**Gallery with attribution** — author, licence and source surfaced per image,
+as tappable links:
+
+![Gallery with attribution](assets/screenshots/08-gallery-attribution.png)
 
 ## Testing
 
