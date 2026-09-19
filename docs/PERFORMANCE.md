@@ -101,8 +101,16 @@ does not delete unmentioned rows.
 
 ### Build
 
-- iOS release build to simulator: **0 errors, 1 warning**.
-- Metro bundle for the running app: **1,537 modules**.
+| Platform | Result |
+|---|---|
+| iOS, debug build to simulator | **0 errors**, 1 warning; app launches and runs |
+| iOS, `expo export` | 1,411 modules |
+| Android, `expo export` | **3.44 MB**, 1,407 modules |
+| Android, Gradle build to emulator | see below |
+
+Both platforms bundle from the same source with **no platform branching** —
+there is no `Platform.select`, and no `.ios.tsx` / `.android.tsx` files in
+`src`.
 
 ---
 
