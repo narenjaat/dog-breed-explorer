@@ -63,6 +63,22 @@ export function resolveImageRequest(
 }
 
 /**
+ * Resolves the list-row thumbnail.
+ *
+ * The list query deliberately skips the `breed_images` rows (283 rows would
+ * otherwise drag ~2,400 image rows with them), so the denormalised
+ * `thumbnailUrl` column is the primary source here. It is still disk-cached:
+ * these are the images the user scrolls past every session.
+ */
+export function resolveListThumbnail(
+  thumbnailUrl: string | null,
+  image: BreedImage | null,
+): ImageRequest {
+  const uri = thumbnailUrl ?? image?.thumbUrl ?? null;
+  return { uri, cachePolicy: uri === null ? 'none' : 'memory-disk' };
+}
+
+/**
  * Number of gallery slides to keep mounted either side of the active one.
  * Two is enough to make a swipe feel instant without holding 9 decoded
  * bitmaps in memory at once.

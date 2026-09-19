@@ -14,7 +14,7 @@ import { Image } from 'expo-image';
 import { useTheme } from '@/theme/ThemeProvider';
 import { BREED_ROW_HEIGHT } from '@/theme';
 import type { Breed } from '@/types/domain';
-import { resolveImageRequest } from '@/services/imageCacheService';
+import { resolveListThumbnail } from '@/services/imageCacheService';
 import { formatRange } from '@/utils/format';
 import { initialsFor } from '@/utils/text';
 
@@ -43,17 +43,19 @@ function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.R
     onPress(breed.id, breed.name);
   }, [onPress, breed.id, breed.name]);
 
+  // The list query does not hydrate image rows (it only needs one thumbnail
+  // per breed), so this resolves against the denormalised `thumbnailUrl`
+  // column and falls back to the image record only if one happens to be
+  // loaded — e.g. after a detail-screen refresh upserted it.
   const thumbnail = useMemo(
-    () => resolveImageRequest(breed.images[0] ?? null, 'list'),
-    [breed.images],
+    () => resolveListThumbnail(breed.thumbnailUrl, breed.images[0] ?? null),
+    [breed.thumbnailUrl, breed.images],
   );
 
   const sizeLabel = breed.sizeBand === null ? null : SIZE_LABELS[breed.sizeBand] ?? null;
   const weight = formatRange(breed.maleWeight, 'kg');
 
-  // Thumbnail falls back to the denormalised column when images were not
-  // hydrated (the list query does not load image rows).
-  const uri = thumbnail.uri ?? breed.thumbnailUrl;
+  const uri = thumbnail.uri;
 
   return (
     <Pressable
