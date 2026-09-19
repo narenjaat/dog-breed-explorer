@@ -182,6 +182,9 @@ Measured figures and the commands that produced them are in
 | Partial failure (2 of 6 pages down) | **187 breeds recovered**, cache preserved |
 | Test suite | **197 tests, 9 suites** |
 
+Verified running on **both platforms**: iOS 26 simulator (iPhone 17 Pro) and
+Android emulator (API 36), from the same source with no platform branching.
+
 **Device profiling is not yet captured.** Time-to-interactive, sustained FPS
 and memory must be recorded on a physical device; PERFORMANCE.md contains the
 exact commands and `TODO` markers for each. No profiling number is estimated or
@@ -191,9 +194,13 @@ quoted here that was not actually measured.
 
 ## Screenshots
 
-| Breed list (light) | Breed list (dark) |
+| Breed list — iOS (light) | Breed list — iOS (dark) |
 |---|---|
 | ![Breed list, light mode](assets/screenshots/01-breed-list-light.png) | ![Breed list, dark mode](assets/screenshots/02-breed-list-dark.png) |
+
+**Android** — same source, no platform branching:
+
+![Breed list on Android](assets/screenshots/07-breed-list-android.png)
 
 **Gallery with attribution** — author, licence and source are surfaced per
 image, as tappable links:

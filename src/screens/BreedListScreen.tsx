@@ -308,7 +308,11 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
         maxToRenderPerBatch={12}
         updateCellsBatchingPeriod={50}
         windowSize={9}
-        removeClippedSubviews
+        // `removeClippedSubviews` is deliberately NOT set. On the New
+        // Architecture it detaches native views behind Fabric's back and
+        // crashes the mount ("addViewAt: failed to insert view ... index=N
+        // count=1") once a section re-renders. Fabric already recycles views,
+        // so it buys nothing here.
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={[

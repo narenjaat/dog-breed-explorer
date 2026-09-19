@@ -106,7 +106,8 @@ does not delete unmentioned rows.
 | iOS, debug build to simulator | **0 errors**, 1 warning; app launches and runs |
 | iOS, `expo export` | 1,411 modules |
 | Android, `expo export` | **3.44 MB**, 1,407 modules |
-| Android, Gradle build to emulator | see below |
+| Android, Gradle build to emulator | **BUILD SUCCESSFUL in 30m 8s** (first build; 319 tasks, 275 executed) |
+| Android, app on emulator | Launches, syncs 283 breeds, SQLite in WAL mode, no JS errors |
 
 Both platforms bundle from the same source with **no platform branching** —
 there is no `Platform.select`, and no `.ios.tsx` / `.android.tsx` files in
@@ -122,6 +123,7 @@ nested traits, coat, origin, alternate names and up to 10 image records each.
 
 | Optimisation | Mechanism | What it avoids |
 |---|---|---|
+| `removeClippedSubviews` **off** | Omitted on both lists | A Fabric mount crash (`addViewAt: failed to insert view`) on Android; Fabric recycles views already |
 | Derived facets persisted | `size_band`, `coat_category`, `search_haystack` computed once at parse time, stored and indexed | Re-deriving band/category and re-lowercasing 283 names + alias arrays on every keystroke |
 | List loads no image rows | List query passes `[]` for images; row reads denormalised `thumbnail_url` | Materialising ~2,400 image objects to render 283 thumbnails |
 | Memoised selectors | `createSelector` for filter + group | Re-filtering the dataset on every render and every scroll frame |

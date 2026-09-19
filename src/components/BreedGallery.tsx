@@ -216,7 +216,7 @@ function BreedGalleryComponent({ images, breedName }: BreedGalleryProps): React.
         initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={3}
-        removeClippedSubviews
+        // See BreedListScreen: omitted for Fabric mount safety.
         testID="breed-gallery"
       />
 

@@ -197,6 +197,30 @@ which is what makes the scrollbar and programmatic scrolling cheap.
 
 ---
 
+## 10a. `removeClippedSubviews` is deliberately off
+
+**Decision.** Neither the breed list nor the gallery sets
+`removeClippedSubviews`.
+
+**Why.** It was set initially — it is standard advice for long lists on the old
+architecture. Running the app on Android revealed it is actively harmful under
+the New Architecture: it detaches native views behind Fabric's back, and once
+enough rows had mounted the app died with
+
+```
+addViewAt: failed to insert view [532] into parent [116] at index 12
+index=12 count=1   (SurfaceMountingManager.kt:389)
+```
+
+The iOS build never reproduced it, so this was only caught by running on a real
+Android emulator rather than trusting the bundle to be enough.
+
+Fabric already recycles views, so removing the prop costs nothing measurable and
+removes a whole crash class. Verified by aggressive scrolling through all
+sections with a clean logcat.
+
+---
+
 ## 11. Tiered image caching
 
 **Decision.** Variant and cache tier chosen by where the image appears:
