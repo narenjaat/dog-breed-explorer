@@ -25,10 +25,6 @@ export interface SyncOptions {
  */
 let inFlight: Promise<SyncResult> | null = null;
 
-export function isSyncInFlight(): boolean {
-  return inFlight !== null;
-}
-
 /**
  * Runs a full synchronisation.
  *

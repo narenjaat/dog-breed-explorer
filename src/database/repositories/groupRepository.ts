@@ -37,9 +37,3 @@ export async function getAllGroups(): Promise<readonly BreedGroup[]> {
   );
   return rows.map((row) => ({ id: row.id, name: row.name }));
 }
-
-export async function countGroups(): Promise<number> {
-  const db = await getDatabase();
-  const row = await db.getFirstAsync<{ total: number }>('SELECT COUNT(*) AS total FROM groups');
-  return row?.total ?? 0;
-}

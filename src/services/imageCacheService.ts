@@ -79,13 +79,6 @@ export function resolveListThumbnail(
 }
 
 /**
- * Number of gallery slides to keep mounted either side of the active one.
- * Two is enough to make a swipe feel instant without holding 9 decoded
- * bitmaps in memory at once.
- */
-export const GALLERY_WINDOW_SIZE = 2;
-
-/**
  * Warms the disk cache for the first `limit` list thumbnails.
  *
  * Called after a sync so the top of the list has art immediately on the next

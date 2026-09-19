@@ -11,5 +11,5 @@ export {
   upsertBreeds,
 } from '@/database/repositories/breedRepository';
 export type { BreedQuery } from '@/database/repositories/breedRepository';
-export { countGroups, getAllGroups, upsertGroups } from '@/database/repositories/groupRepository';
+export { getAllGroups, upsertGroups } from '@/database/repositories/groupRepository';
 export { getSyncState, saveSyncState } from '@/database/repositories/syncRepository';

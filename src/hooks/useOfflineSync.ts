@@ -196,9 +196,3 @@ export function useOfflineSync(): UseOfflineSyncResult {
 
   return { refresh, retry };
 }
-
-/** Exported for tests: whether cached data is old enough to auto-refresh. */
-export function isCacheStale(lastSyncedAt: number | null, now: number = Date.now()): boolean {
-  if (lastSyncedAt === null) return true;
-  return now - lastSyncedAt > STALE_AFTER_MS;
-}
