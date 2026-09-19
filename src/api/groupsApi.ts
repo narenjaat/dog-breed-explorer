@@ -16,7 +16,10 @@ export interface GroupsResult {
 }
 
 export async function fetchGroups(options: FetchOptions = {}): Promise<GroupsResult> {
-  const payload = await requestJson('/groups', { signal: options.signal });
+  const payload = await requestJson('/groups', {
+    signal: options.signal,
+    retryBaseDelayMs: options.retryBaseDelayMs,
+  });
   const { items, skipped } = parseCollection(payload, parseGroup);
   return { groups: items, skipped };
 }

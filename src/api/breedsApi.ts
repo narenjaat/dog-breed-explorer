@@ -48,6 +48,8 @@ export interface AllBreedsResult {
 
 export interface FetchOptions {
   readonly signal?: AbortSignal;
+  /** Overrides the retry backoff base delay (tests use a tiny value). */
+  readonly retryBaseDelayMs?: number;
 }
 
 /** Fetches and parses a single page of breeds. */
@@ -58,6 +60,7 @@ export async function fetchBreedPage(
   const payload = await requestJson('/breeds', {
     query: { 'page[number]': pageNumber, 'page[size]': API_CONFIG.pageSize },
     signal: options.signal,
+    retryBaseDelayMs: options.retryBaseDelayMs,
   });
 
   const { items, skipped } = parseCollection(payload, parseBreed);
@@ -78,6 +81,7 @@ export async function fetchBreedPage(
 export async function fetchBreedById(id: string, options: FetchOptions = {}): Promise<Breed> {
   const payload = await requestJson(`/breeds/${encodeURIComponent(id)}`, {
     signal: options.signal,
+    retryBaseDelayMs: options.retryBaseDelayMs,
   });
   const breed = parseSingle(payload, parseBreed);
   if (breed === null) {

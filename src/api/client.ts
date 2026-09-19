@@ -15,6 +15,8 @@ export interface RequestOptions {
   readonly signal?: AbortSignal;
   readonly timeoutMs?: number;
   readonly maxRetries?: number;
+  /** Overrides the backoff base delay. Used by tests to avoid real waiting. */
+  readonly retryBaseDelayMs?: number;
 }
 
 /** Sleep that rejects immediately if the caller aborts mid-backoff. */
@@ -135,7 +137,7 @@ export async function requestJson(path: string, options: RequestOptions = {}): P
 
       if (!apiError.retryable || attempt === maxRetries) break;
 
-      await delay(backoffDelayMs(attempt), options.signal);
+      await delay(backoffDelayMs(attempt, options.retryBaseDelayMs), options.signal);
     }
   }
 
