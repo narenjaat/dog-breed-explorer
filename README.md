@@ -78,6 +78,10 @@ flowchart LR
     Net["Connectivity"] --> Sync
 ```
 
+**[docs/APPROACH.md](docs/APPROACH.md) is the best place to start** — how the
+app was built, what probing the live API changed, and the three bugs that only
+running it on both platforms revealed.
+
 Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 [docs/DECISIONS.md](docs/DECISIONS.md) ·
 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
@@ -271,7 +275,7 @@ src/
 ├── types/        api (wire), domain, sync
 ├── utils/        guards, derive, format, text
 └── __tests__/    9 suites
-docs/             ARCHITECTURE · DECISIONS · PERFORMANCE · SCREENSHOTS
+docs/             APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · SCREENSHOTS
 ```
 
 ---
