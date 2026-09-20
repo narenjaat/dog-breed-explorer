@@ -1,65 +1,64 @@
 # Screenshots
 
-Three screenshots are captured and committed. Three require UI interaction that
-the simulator CLI cannot drive, so the exact steps are recorded here rather than
-faked.
+All screenshots are captured from the running app — iOS simulator
+(iPhone 17 Pro) or Android emulator (Medium_Phone, API 36). None is a mockup.
 
-## Captured
+| File | Shows | Platform |
+|---|---|---|
+| `01-breed-list-light.png` | Breed list, light mode — 283 breeds, sticky section header, size/hypoallergenic badges, freshness indicator | iOS |
+| `02-breed-list-dark.png` | Breed list, dark mode | iOS |
+| `03-filters-applied.png` | Filter sheet with Sporting + Large active; live count "Show 16 breeds" | Android |
+| `04-filtered-results.png` | The filtered list — every row is Sporting AND Large | Android |
+| `05-details-traits.png` | Traits tab: ten 1-5 segmented scales + `exercise_minutes` as its own duration bar + temperament tags | Android |
+| `06-details-overview.png` | Overview tab: description, group, lifespan, origin, male/female weight and height, coat | Android |
+| `07-breed-list-android.png` | Breed list on Android — same source, no platform branching | Android |
+| `08-gallery-attribution.png` | Gallery with author / licence / source attribution as tappable links | iOS |
 
-| File | Shows |
-|---|---|
-| `assets/screenshots/01-breed-list-light.png` | Breed list, light mode — 283 breeds, sticky section header, size/hypoallergenic badges, freshness indicator |
-| `assets/screenshots/02-breed-list-dark.png` | Breed list, dark mode |
-| `assets/screenshots/05-gallery-attribution.png` | Gallery tab with author / licence / source attribution |
+## Reproducing these
 
-## To capture
+### iOS
 
-Run the app (`npm run ios`), then for each:
-
-### `03-filters-applied.png`
-
-1. Tap **Filters**.
-2. Select **Sporting**, size **Large**, and trait **Good with children** with a
-   minimum of **4**.
-3. Screenshot the open sheet (shows the composed multi-select state and the
-   live result count on the Apply button).
-4. Tap Apply and screenshot the filtered list if a second image is wanted.
-
-### `04-details-traits.png`
-
-1. Open any breed with full data (e.g. **Labrador Retriever**).
-2. Switch to the **Traits** tab.
-3. Screenshot — shows the 10 segmented 1-5 scales, the separate
-   `exercise_minutes` duration bar, and temperament tags.
-
-### `06-offline-banner.png`
-
-On the iOS simulator, disable the host machine's wifi, or use the Network Link
-Conditioner (Xcode → Open Developer Tool → More Developer Tools → Additional
-Tools → Network Link Conditioner) set to **100% Loss**.
-
-On Android:
+`simctl` has no tap command, so iOS screenshots are taken by navigating the
+simulator by hand and capturing:
 
 ```bash
-adb shell svc wifi disable && adb shell svc data disable
+xcrun simctl io "iPhone 17 Pro" screenshot out.png
+xcrun simctl ui "iPhone 17 Pro" appearance dark   # or light
 ```
 
-Then relaunch the app and screenshot the list. Expected banner:
-**"Offline — showing cached breeds · Last synced N minutes ago"**, with the
-full list still scrollable underneath.
+### Android
 
-Re-enable connectivity and the banner should clear and a background sync should
-fire automatically.
-
-## Capturing from the CLI
+`adb` can drive the UI directly, which is how the filter and detail shots were
+captured:
 
 ```bash
-# iOS
-xcrun simctl io "iPhone 17 Pro" screenshot assets/screenshots/03-filters-applied.png
-
-# Appearance toggle
-xcrun simctl ui "iPhone 17 Pro" appearance dark
-
-# Android
-adb exec-out screencap -p > assets/screenshots/03-filters-applied.png
+adb shell input tap <x> <y>          # coordinates are in device pixels
+adb shell input swipe <x1> <y1> <x2> <y2> <ms>
+adb exec-out screencap -p > out.png
 ```
+
+## Offline banner
+
+The offline state needs a **release** build. A debug build loads its JS bundle
+from Metro over the network, so disabling the network stops the app booting at
+all and you get React Native's "Unable to load script" screen rather than the
+app's own offline UI.
+
+```bash
+cd android && ./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
+
+# Launch once with network to populate the cache, then:
+adb shell svc wifi disable
+adb shell svc data disable
+adb shell am force-stop ai.tripare.dogbreeds
+adb shell am start -n ai.tripare.dogbreeds/.MainActivity
+adb exec-out screencap -p > offline.png
+
+# Restore:
+adb shell svc wifi enable && adb shell svc data enable
+```
+
+Expected: the full cached list renders, with the banner reading
+**"Offline — showing cached breeds · Last synced N minutes ago"**. Re-enabling
+the network should clear the banner and trigger a background sync.
