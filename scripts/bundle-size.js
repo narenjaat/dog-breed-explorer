@@ -1,10 +1,10 @@
 /**
- * Reports the size of an exported bundle.
+ * Reports the size of a release bundle.
  *
- * Reads whatever `expo export` produced in ./dist — it never estimates or
- * hardcodes a number, so the figures in PERFORMANCE.md are always measured.
+ * Reads whatever `react-native bundle` produced in ./dist — it never estimates
+ * or hardcodes a number, so the figures in PERFORMANCE.md are always measured.
  *
- * Usage: npx expo export --platform android --output-dir dist && node scripts/bundle-size.js
+ * Usage: npm run bundle:analyze
  */
 
 const fs = require('node:fs');
@@ -33,12 +33,12 @@ function formatBytes(bytes) {
 const files = walk(DIST_DIR);
 
 if (files.length === 0) {
-  console.error('No export found in ./dist. Run `npx expo export` first.');
+  console.error('No export found in ./dist. Run `npm run bundle:analyze`.');
   process.exit(1);
 }
 
-const bundles = files.filter((file) => /\.(hbc|js)$/.test(file.path));
-const assets = files.filter((file) => !/\.(hbc|js)$/.test(file.path));
+const bundles = files.filter((file) => /\.(hbc|js|bundle)$/.test(file.path));
+const assets = files.filter((file) => !/\.(hbc|js|bundle)$/.test(file.path));
 
 const sum = (list) => list.reduce((total, file) => total + file.bytes, 0);
 

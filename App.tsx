@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'react-native';
 import { Provider as ReduxProvider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -40,7 +40,9 @@ const queryClient = new QueryClient({
 /** Keeps the status bar legible against whichever theme is active. */
 function ThemedStatusBar(): React.ReactElement {
   const theme = useTheme();
-  return <StatusBar style={theme.isDark ? 'light' : 'dark'} />;
+  // Android draws edge-to-edge (gradle.properties), so only the icon colour
+  // needs setting; screens pad themselves with safe-area insets.
+  return <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} />;
 }
 
 export default function App(): React.ReactElement {

@@ -4,7 +4,7 @@ An offline-first React Native app for browsing all 283 breeds from the
 [Dog API v2](https://dogapi.dog/docs/api-v2), built for the Tripare AI
 React Native assessment.
 
-Built with React Native (Expo SDK 57) · TypeScript strict · Redux Toolkit ·
+Built with React Native 0.86 (bare CLI, New Architecture) · TypeScript strict · Redux Toolkit ·
 SQLite · TanStack Query · React Navigation.
 
 ---
@@ -13,15 +13,23 @@ SQLite · TanStack Query · React Navigation.
 
 ```bash
 npm install
+npm run pods             # iOS only: bundle install + pod install
 cp .env.example .env     # optional — see "Environment" below
+npm start                # Metro, in its own terminal
 npm run ios              # or: npm run android
 ```
 
 `npm test` runs the suite (197 tests). `npm run typecheck` runs `tsc --noEmit`.
 
-**Requirements:** Node 18+, and Xcode (iOS) or Android Studio + JDK 17
-(Android). The first `npm run ios` compiles the native project and takes a few
-minutes; subsequent runs are fast.
+**Requirements:** Node 22.11+, and Xcode + CocoaPods (iOS) or Android Studio +
+JDK 17 (Android). The native projects live in `ios/` and `android/` and are
+committed. The first `npm run ios` / `npm run android` compiles them and takes
+a few minutes; subsequent runs are fast.
+
+**Upgrading a device that had the old Expo build installed** (same bundle id):
+uninstall it first, or clear the app's data. The Expo build's HTTP cache holds
+zstd-encoded API responses that the RN networking stack cannot decode, which
+shows up as "The Dog API returned data in an unexpected format."
 
 ### Environment
 
@@ -32,11 +40,13 @@ code (for example, pointing at a mock server):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `EXPO_PUBLIC_DOG_API_BASE_URL` | `https://dogapi.dog/api/v2` | API base URL |
-| `EXPO_PUBLIC_API_TIMEOUT_MS` | `15000` | Per-request timeout |
-| `EXPO_PUBLIC_API_MAX_RETRIES` | `3` | Retry attempts (exponential backoff) |
-| `EXPO_PUBLIC_API_PAGE_SIZE` | `48` | Records per page (see note below) |
+| `DOG_API_BASE_URL` | `https://dogapi.dog/api/v2` | API base URL |
+| `DOG_API_TIMEOUT_MS` | `15000` | Per-request timeout |
+| `DOG_API_MAX_RETRIES` | `3` | Retry attempts (exponential backoff) |
+| `DOG_API_PAGE_SIZE` | `48` | Records per page (see note below) |
 
+These are inlined into the JS bundle at build time by `babel.config.js`, so
+after changing `.env` restart Metro with `npm start -- --reset-cache`.
 Values are validated, not trusted: a malformed number falls back to its default
 rather than producing a `NaN` timeout.
 
@@ -119,10 +129,12 @@ only if the cache is empty or older than 6 hours → re-sync on the
 offline→online *edge* and on foreground when stale. Writes are upserts inside a
 transaction. A run that yields zero breeds is treated as an error, not a wipe.
 
-**Image caching strategy.** Tiered by context: list thumbnails are
-`memory-disk` (283 small files the user scrolls past every session — worth
-persisting for offline relaunch); the detail hero is `memory-disk`; gallery
-slides are memory-only, and only the *active* slide upgrades to `large`.
+**Image caching strategy.** Tiered by context, via
+`@d11/react-native-fast-image`: list thumbnails are cached `immutable` (283
+small files the user scrolls past every session — worth persisting for offline
+relaunch); the detail hero is `immutable`; gallery slides use `web` caching
+(they follow HTTP cache headers rather than being pinned), and only the
+*active* slide upgrades to `large`.
 Caching every variant of ~2,400 images would be hundreds of MB of
 mostly-unviewed data.
 

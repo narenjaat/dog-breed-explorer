@@ -57,7 +57,7 @@ flowchart TD
 2. It reads breeds, groups and sync metadata from SQLite **in parallel** and
    dispatches `hydratedFromCache`. The list is interactive at this point — no
    network request has been made.
-3. Connectivity is probed (`expo-network`).
+3. Connectivity is probed (`@react-native-community/netinfo`).
 4. If online **and** the cache is empty or older than 6 hours, a background
    sync starts. Otherwise nothing further happens: the cached data stands.
 

@@ -5,7 +5,7 @@
  * existing one, since shipped installs have already run it.
  */
 
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SqlDatabase } from '@/database/database';
 
 export interface Migration {
   readonly version: number;
@@ -136,19 +136,19 @@ export const LATEST_SCHEMA_VERSION: number =
  * Each migration runs inside a transaction so a partial apply cannot leave a
  * half-built schema behind.
  */
-export async function runMigrations(db: SQLiteDatabase): Promise<number> {
-  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+export async function runMigrations(db: SqlDatabase): Promise<number> {
+  const row = await db.getFirst<{ user_version: number }>('PRAGMA user_version');
   const currentVersion = row?.user_version ?? 0;
 
   let appliedVersion = currentVersion;
   for (const migration of MIGRATIONS) {
     if (migration.version <= currentVersion) continue;
 
-    await db.withTransactionAsync(async () => {
-      await db.execAsync(migration.up);
+    await db.withTransaction(async () => {
+      await db.exec(migration.up);
     });
     // PRAGMA cannot be parameterised, and the value is a trusted literal.
-    await db.execAsync(`PRAGMA user_version = ${String(migration.version)}`);
+    await db.exec(`PRAGMA user_version = ${String(migration.version)}`);
     appliedVersion = migration.version;
   }
 

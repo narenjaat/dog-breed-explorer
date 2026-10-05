@@ -23,7 +23,7 @@ normalisation and selector story is the actual requirement.
 
 ---
 
-## 2. SQLite (expo-sqlite) for persistence
+## 2. SQLite (op-sqlite) for persistence
 
 **Decision.** SQLite with a repository layer; no ORM.
 
@@ -227,10 +227,14 @@ sections with a clean logcat.
 
 | Context | Variant | Cache |
 |---|---|---|
-| List row | `thumb` | `memory-disk` |
-| Detail hero | `medium` | `memory-disk` |
-| Gallery, off-screen slides | `medium` | `memory` |
-| Gallery, active slide | `large` | `memory` |
+| List row | `thumb` | `immutable` |
+| Detail hero | `medium` | `immutable` |
+| Gallery, off-screen slides | `medium` | `web` |
+| Gallery, active slide | `large` | `web` |
+
+FastImage (Glide / SDWebImage) has no memory-only tier, so gallery slides use
+`web`: they follow the server's cache headers and can age out of the disk
+cache, instead of being pinned there like `immutable` entries.
 
 **Alternatives.** Cache everything to disk; cache nothing.
 
@@ -284,12 +288,28 @@ from the component.
 
 ---
 
-## 15. Expo over bare React Native
+## 15. Bare React Native CLI (migrated from Expo)
 
-**Decision.** Expo SDK 57.
+**Decision.** React Native 0.86 CLI project with committed `ios/` and
+`android/`, no Expo dependency. The app started on Expo SDK 57 and was
+migrated.
 
-**Why.** The brief allows either and requires `npm run ios` to work in under
-three minutes. Expo delivers that, plus `expo-sqlite`, `expo-image` (real disk
-caching, which I would otherwise hand-roll) and `expo-network` as
-version-matched modules. Nothing here needs a custom native module, so bare RN
-would add setup cost for no capability gain.
+**Replacements.**
+
+| Expo module | Replacement |
+|---|---|
+| `expo-sqlite` | `@op-engineering/op-sqlite`, behind the `SqlDatabase` adapter in `src/database/database.ts` |
+| `expo-image` | `@d11/react-native-fast-image` |
+| `expo-network` | `@react-native-community/netinfo` |
+| `expo-status-bar` | React Native `StatusBar` |
+| `EXPO_PUBLIC_*` inlining | `dotenv` + `babel-plugin-transform-inline-environment-variables` (allow-listed `DOG_API_*` keys) |
+| tsconfig `@/` paths | `babel-plugin-module-resolver` |
+| `jest-expo` | `@react-native/jest-preset` |
+
+**Why.** Full control over the native projects and no Expo toolchain in the
+build. The repository layer only sees the small `SqlDatabase` interface, so
+swapping the SQLite driver did not touch the SQL or the tests.
+
+**Cost.** Icons, splash and orientation are now maintained by hand in the
+native projects rather than generated from `app.json`, and native dependency
+versions are no longer pinned for us by an SDK release.

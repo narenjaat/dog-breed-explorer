@@ -20,7 +20,7 @@ import type {
 import { COAT_CATEGORIES, SCORED_TRAIT_KEYS, SIZE_BANDS } from '@/types/domain';
 import { isRecord, isString, optionalNumber, optionalString } from '@/utils/guards';
 
-/** Shape of a `breeds` row as returned by expo-sqlite. */
+/** Shape of a `breeds` row as returned by SQLite. */
 export interface BreedRow {
   readonly id: string;
   readonly name: string;
@@ -228,5 +228,5 @@ export function breedToBindValues(breed: Breed, syncedAt: number): readonly SQLi
   ];
 }
 
-/** Values expo-sqlite accepts as statement parameters. */
+/** Values the driver accepts as statement parameters. */
 export type SQLiteBindValue = string | number | null;

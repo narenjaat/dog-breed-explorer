@@ -7,9 +7,8 @@
  * filter it.
  */
 
-import type { SQLiteDatabase } from 'expo-sqlite';
-
 import { getDatabase } from '@/database/database';
+import type { SqlDatabase } from '@/database/database';
 import type { BreedImageRow, BreedRow, SQLiteBindValue } from '@/database/rowMappers';
 import { breedToBindValues, mapBreedRow, mapImageRow } from '@/database/rowMappers';
 import type { Breed, BreedImage, CoatCategory, FilterableTraitKey, SizeBand } from '@/types/domain';
@@ -214,20 +213,20 @@ export async function upsertBreeds(breeds: readonly Breed[], syncedAt: number): 
   if (breeds.length === 0) return;
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
-    const breedStatement = await db.prepareAsync(UPSERT_BREED_SQL);
-    const imageStatement = await db.prepareAsync(UPSERT_IMAGE_SQL);
+  await db.withTransaction(async () => {
+    const breedStatement = await db.prepare(UPSERT_BREED_SQL);
+    const imageStatement = await db.prepare(UPSERT_IMAGE_SQL);
 
     try {
       for (const breed of breeds) {
-        await breedStatement.executeAsync(breedToBindValues(breed, syncedAt) as SQLiteBindValue[]);
+        await breedStatement.execute(breedToBindValues(breed, syncedAt));
 
         // Replace this breed's images wholesale so images removed upstream do
         // not linger. Scoped to one breed, so it is not a global wipe.
-        await db.runAsync('DELETE FROM breed_images WHERE breed_id = ?', breed.id);
+        await db.run('DELETE FROM breed_images WHERE breed_id = ?', [breed.id]);
 
         for (const image of breed.images) {
-          await imageStatement.executeAsync([
+          await imageStatement.execute([
             image.id,
             breed.id,
             image.position,
@@ -243,28 +242,28 @@ export async function upsertBreeds(breeds: readonly Breed[], syncedAt: number): 
         }
       }
     } finally {
-      await breedStatement.finalizeAsync();
-      await imageStatement.finalizeAsync();
+      await breedStatement.finalize();
+      await imageStatement.finalize();
     }
   });
 }
 
 /** Loads images for many breeds in one query, grouped by breed id. */
 async function loadImagesFor(
-  db: SQLiteDatabase,
+  db: SqlDatabase,
   breedIds: readonly string[],
 ): Promise<Map<string, BreedImage[]>> {
   const grouped = new Map<string, BreedImage[]>();
   if (breedIds.length === 0) return grouped;
 
   const placeholders = breedIds.map(() => '?').join(', ');
-  const rows = await db.getAllAsync<BreedImageRow>(
+  const rows = await db.getAll<BreedImageRow>(
     `SELECT id, breed_id, position, thumb_url, medium_url, large_url,
             author, license, license_url, source, source_url
        FROM breed_images
       WHERE breed_id IN (${placeholders})
       ORDER BY breed_id, position`,
-    breedIds as string[],
+    breedIds,
   );
 
   for (const row of rows) {
@@ -286,9 +285,9 @@ export async function queryBreeds(query: BreedQuery = {}): Promise<readonly Bree
   const db = await getDatabase();
   const { sql, binds } = buildBreedWhereClause(query);
 
-  const rows = await db.getAllAsync<BreedRow>(
+  const rows = await db.getAll<BreedRow>(
     `SELECT ${BREED_COLUMNS} FROM breeds ${sql} ORDER BY name COLLATE NOCASE ASC`,
-    binds as SQLiteBindValue[],
+    binds,
   );
 
   return rows.map((row) => mapBreedRow(row, []));
@@ -297,11 +296,11 @@ export async function queryBreeds(query: BreedQuery = {}): Promise<readonly Bree
 /** Loads one breed with its images, for the detail screen. */
 export async function getBreedById(id: string): Promise<Breed | null> {
   const db = await getDatabase();
-  const row = await db.getFirstAsync<BreedRow>(
+  const row = await db.getFirst<BreedRow>(
     `SELECT ${BREED_COLUMNS} FROM breeds WHERE id = ?`,
-    id,
+    [id],
   );
-  if (row === null || row === undefined) return null;
+  if (row === null) return null;
 
   const images = await loadImagesFor(db, [id]);
   return mapBreedRow(row, images.get(id) ?? []);
@@ -309,15 +308,15 @@ export async function getBreedById(id: string): Promise<Breed | null> {
 
 export async function countBreeds(): Promise<number> {
   const db = await getDatabase();
-  const row = await db.getFirstAsync<{ total: number }>('SELECT COUNT(*) AS total FROM breeds');
+  const row = await db.getFirst<{ total: number }>('SELECT COUNT(*) AS total FROM breeds');
   return row?.total ?? 0;
 }
 
 /** Clears breed data. Used only by an explicit user-initiated reset. */
 export async function clearBreeds(): Promise<void> {
   const db = await getDatabase();
-  await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM breed_images');
-    await db.runAsync('DELETE FROM breeds');
+  await db.withTransaction(async () => {
+    await db.run('DELETE FROM breed_images');
+    await db.run('DELETE FROM breeds');
   });
 }

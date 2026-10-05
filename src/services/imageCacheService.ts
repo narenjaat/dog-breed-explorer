@@ -6,27 +6,33 @@
  * will mostly never look at, so the policy is tiered by where an image is
  * shown:
  *
- *   list    -> thumb   , disk-cached : 283 small images, every one of which
- *                                      the user scrolls past. Worth persisting.
- *   detail  -> medium  , disk-cached : one hero image per visited breed.
- *   gallery -> medium  , memory-only : upgraded to `large` only for the slide
- *                                      actually on screen, so swiping through
- *                                      9 images does not write 9 large files.
+ *   list    -> thumb   , immutable : 283 small images, every one of which
+ *                                    the user scrolls past. Cached by URL and
+ *                                    never revalidated, so offline works.
+ *   detail  -> medium  , immutable : one hero image per visited breed.
+ *   gallery -> medium  , web       : upgraded to `large` only for the slide
+ *                                    actually on screen, so swiping through 9
+ *                                    images does not fetch 9 large files.
  *
- * `expo-image` owns the eviction; this module decides *policy* (which variant,
- * which cache tier) and exposes the one lever the OS cannot infer: clearing
+ * FastImage (Glide on Android, SDWebImage on iOS) always caches to memory and
+ * disk; there is no memory-only tier. `web` is the closest lever: it follows
+ * the server's HTTP cache headers, so slides seen once can age out of the
+ * disk cache instead of being pinned there like `immutable` entries.
+ *
+ * FastImage owns the eviction; this module decides *policy* (which variant,
+ * which cache mode) and exposes the one lever the OS cannot infer: clearing
  * the cache on request.
  */
 
-import { Image } from 'expo-image';
+import FastImage from '@d11/react-native-fast-image';
 
 import type { BreedImage } from '@/types/domain';
 
 /** Where an image is being rendered, which determines the caching policy. */
 export type ImageContext = 'list' | 'detail' | 'gallery' | 'galleryActive';
 
-/** expo-image cache policies used by this app. */
-export type CachePolicy = 'memory-disk' | 'memory' | 'none';
+/** FastImage cache modes used by this app. */
+export type CachePolicy = 'immutable' | 'web';
 
 export interface ImageRequest {
   readonly uri: string | null;
@@ -43,22 +49,22 @@ export function resolveImageRequest(
   image: BreedImage | null,
   context: ImageContext,
 ): ImageRequest {
-  if (image === null) return { uri: null, cachePolicy: 'none' };
+  if (image === null) return { uri: null, cachePolicy: 'web' };
 
   switch (context) {
     case 'list':
       // Small, frequently re-shown: persist so an offline relaunch has art.
-      return { uri: image.thumbUrl, cachePolicy: 'memory-disk' };
+      return { uri: image.thumbUrl, cachePolicy: 'immutable' };
     case 'detail':
-      return { uri: image.mediumUrl ?? image.thumbUrl, cachePolicy: 'memory-disk' };
+      return { uri: image.mediumUrl ?? image.thumbUrl, cachePolicy: 'immutable' };
     case 'gallery':
-      // Off-screen slides: memory only, so a long swipe session does not
-      // fill the disk cache with images seen once.
-      return { uri: image.mediumUrl ?? image.thumbUrl, cachePolicy: 'memory' };
+      // Off-screen slides: `web`, so a long swipe session does not pin
+      // images seen once in the disk cache.
+      return { uri: image.mediumUrl ?? image.thumbUrl, cachePolicy: 'web' };
     case 'galleryActive':
-      return { uri: image.largeUrl ?? image.mediumUrl ?? image.thumbUrl, cachePolicy: 'memory' };
+      return { uri: image.largeUrl ?? image.mediumUrl ?? image.thumbUrl, cachePolicy: 'web' };
     default:
-      return { uri: image.thumbUrl, cachePolicy: 'memory' };
+      return { uri: image.thumbUrl, cachePolicy: 'web' };
   }
 }
 
@@ -67,7 +73,7 @@ export function resolveImageRequest(
  *
  * The list query deliberately skips the `breed_images` rows (283 rows would
  * otherwise drag ~2,400 image rows with them), so the denormalised
- * `thumbnailUrl` column is the primary source here. It is still disk-cached:
+ * `thumbnailUrl` column is the primary source here. It is cached immutably:
  * these are the images the user scrolls past every session.
  */
 export function resolveListThumbnail(
@@ -75,7 +81,7 @@ export function resolveListThumbnail(
   image: BreedImage | null,
 ): ImageRequest {
   const uri = thumbnailUrl ?? image?.thumbUrl ?? null;
-  return { uri, cachePolicy: uri === null ? 'none' : 'memory-disk' };
+  return { uri, cachePolicy: 'immutable' };
 }
 
 /**
@@ -95,7 +101,7 @@ export async function prefetchListThumbnails(
   if (urls.length === 0) return;
 
   try {
-    await Image.prefetch(urls, { cachePolicy: 'memory-disk' });
+    FastImage.preload(urls.map((uri) => ({ uri, cache: FastImage.cacheControl.immutable })));
   } catch {
     // Prefetching is an optimisation; failing it must never surface to the
     // user or fail the sync that triggered it.
@@ -104,5 +110,5 @@ export async function prefetchListThumbnails(
 
 /** Clears both cache tiers. Exposed for a user-initiated "free up space". */
 export async function clearImageCache(): Promise<void> {
-  await Promise.allSettled([Image.clearMemoryCache(), Image.clearDiskCache()]);
+  await Promise.allSettled([FastImage.clearMemoryCache(), FastImage.clearDiskCache()]);
 }

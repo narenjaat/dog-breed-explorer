@@ -121,7 +121,7 @@ rather than silently "fixing" it:
 Every figure is either measured or marked `TODO`. Nothing is estimated and then
 rounded into looking measured.
 
-Measured and reproducible: bundle size (from `expo export` output, read by a
+Measured and reproducible: bundle size (from `react-native bundle` output, read by a
 script rather than copied), sync timing against the live API, the partial-failure
 recovery count, the test suite. Not yet captured: time-to-interactive, sustained
 FPS, and memory — these need a release build on real hardware, and

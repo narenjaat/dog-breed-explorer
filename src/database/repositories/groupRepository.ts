@@ -18,21 +18,21 @@ export async function upsertGroups(groups: readonly BreedGroup[], syncedAt: numb
   if (groups.length === 0) return;
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
-    const statement = await db.prepareAsync(UPSERT_GROUP_SQL);
+  await db.withTransaction(async () => {
+    const statement = await db.prepare(UPSERT_GROUP_SQL);
     try {
       for (const group of groups) {
-        await statement.executeAsync([group.id, group.name, syncedAt]);
+        await statement.execute([group.id, group.name, syncedAt]);
       }
     } finally {
-      await statement.finalizeAsync();
+      await statement.finalize();
     }
   });
 }
 
 export async function getAllGroups(): Promise<readonly BreedGroup[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<{ id: string; name: string }>(
+  const rows = await db.getAll<{ id: string; name: string }>(
     'SELECT id, name FROM groups ORDER BY name COLLATE NOCASE ASC',
   );
   return rows.map((row) => ({ id: row.id, name: row.name }));

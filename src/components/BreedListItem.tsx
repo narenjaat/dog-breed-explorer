@@ -9,7 +9,7 @@
 
 import React, { memo, useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import FastImage from '@d11/react-native-fast-image';
 
 import { useTheme } from '@/theme/ThemeProvider';
 import { BREED_ROW_HEIGHT } from '@/theme';
@@ -29,9 +29,6 @@ const SIZE_LABELS: Readonly<Record<string, string>> = {
   large: 'Large',
   giant: 'Giant',
 };
-
-/** Cross-fade duration for thumbnails; short enough not to feel laggy. */
-const IMAGE_TRANSITION_MS = 150;
 
 function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.ReactElement {
   const theme = useTheme();
@@ -71,15 +68,11 @@ function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.R
             <Text style={styles.thumbnailInitials}>{initialsFor(breed.name)}</Text>
           </View>
         ) : (
-          <Image
-            source={{ uri }}
+          <FastImage
+            source={{ uri, cache: thumbnail.cachePolicy }}
             style={styles.thumbnail}
-            contentFit="cover"
-            cachePolicy={thumbnail.cachePolicy}
-            transition={IMAGE_TRANSITION_MS}
-            // Renders the breed's initials if the URL 404s or the device is
-            // offline with a cold cache.
-            placeholder={null}
+            resizeMode={FastImage.resizeMode.cover}
+            transition={FastImage.transition.fade}
             accessible={false}
           />
         )}

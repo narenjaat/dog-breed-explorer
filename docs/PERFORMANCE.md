@@ -23,35 +23,36 @@
 ### Bundle size
 
 ```bash
-npx expo export --platform android --output-dir dist
-node scripts/bundle-size.js
+npm run bundle:analyze
 ```
 
-Recorded 2026-09-19, Expo SDK 57.0.24 / React Native 0.86.3, release export:
+Recorded 2026-10-05, React Native 0.86.3 CLI, `react-native bundle
+--platform android --dev false`:
 
 ```
 JS bundles
 ------------------------------------------------------------
-     3.44 MB  _expo/static/js/android/index-<hash>.hbc
+     2.38 MB  index.android.bundle
 
 Assets
 ------------------------------------------------------------
-      7.3 KB  18 file(s)
+      6.6 KB  18 file(s)
 
 Total
 ------------------------------------------------------------
-     3.44 MB  19 file(s)
+     2.39 MB  19 file(s)
 ```
 
-- **3.44 MB** Hermes bytecode (`.hbc`), Android, release.
-- **1,407 modules** in the graph.
-- iOS export is equivalent in size (3.6 MB reported by the exporter's own
-  rounding).
+- **2.38 MB** minified JS, Android, release. This is the input to Hermes; the
+  `.hbc` bytecode Gradle compiles from it at build time is larger. The earlier
+  Expo-era figure (3.44 MB) was Hermes bytecode, so the two are not directly
+  comparable.
 - Assets are only React Navigation's bundled icons; this app ships no bundled
   imagery — all breed photos are remote and cached at runtime.
 
-`scripts/bundle-size.js` reads whatever `expo export` actually produced, so
-re-running it always reports real figures rather than a copied constant.
+`scripts/bundle-size.js` reads whatever `react-native bundle` actually
+produced, so re-running it always reports real figures rather than a copied
+constant.
 
 ### Source size
 
@@ -104,8 +105,8 @@ does not delete unmentioned rows.
 | Platform | Result |
 |---|---|
 | iOS, debug build to simulator | **0 errors**, 1 warning; app launches and runs |
-| iOS, `expo export` | 1,411 modules |
-| Android, `expo export` | **3.44 MB**, 1,407 modules |
+| iOS, `expo export` (pre-migration) | 1,411 modules |
+| Android, `expo export` (pre-migration) | **3.44 MB** Hermes bytecode, 1,407 modules |
 | Android, Gradle build to emulator | **BUILD SUCCESSFUL in 30m 8s** (first build; 319 tasks, 275 executed) |
 | Android, app on emulator | Launches, syncs 283 breeds, SQLite in WAL mode, no JS errors |
 
@@ -148,7 +149,7 @@ reading and attach the screenshot.
 ### Startup time to interactive
 
 ```bash
-npx expo run:android --variant release
+npx react-native run-android --mode release
 ```
 
 Measure from process start to the first interactive frame with a warm cache
@@ -165,7 +166,7 @@ Record `TotalTime` from the output.
 
 ### FPS during scroll
 
-Use the Expo dev-client performance monitor, or on Android:
+Use the React Native dev menu's Perf Monitor, or on Android:
 
 ```bash
 adb shell dumpsys gfxinfo ai.tripare.dogbreeds framestats

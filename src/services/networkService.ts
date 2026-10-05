@@ -1,11 +1,12 @@
 /**
  * Network reachability.
  *
- * Wraps expo-network so the rest of the app depends on a two-field snapshot
+ * Wraps NetInfo so the rest of the app depends on a two-field snapshot
  * rather than the SDK's shape, and so tests can drive connectivity directly.
  */
 
-import * as Network from 'expo-network';
+import NetInfo from '@react-native-community/netinfo';
+import type { NetInfoState } from '@react-native-community/netinfo';
 
 export interface NetworkSnapshot {
   /** The device has a network interface up. */
@@ -20,7 +21,7 @@ export interface NetworkSnapshot {
 
 export type NetworkListener = (snapshot: NetworkSnapshot) => void;
 
-function toSnapshot(state: Network.NetworkState): NetworkSnapshot {
+function toSnapshot(state: NetInfoState): NetworkSnapshot {
   const isConnected = state.isConnected ?? false;
   return {
     isConnected,
@@ -32,7 +33,7 @@ function toSnapshot(state: Network.NetworkState): NetworkSnapshot {
  *  probe error cannot strand the user in a permanent "offline" state. */
 export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
   try {
-    const state = await Network.getNetworkStateAsync();
+    const state = await NetInfo.fetch();
     return toSnapshot(state);
   } catch {
     return { isConnected: true, isInternetReachable: true };
@@ -43,12 +44,9 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
  * Subscribes to connectivity changes. Returns an unsubscribe function.
  */
 export function subscribeToNetwork(listener: NetworkListener): () => void {
-  const subscription = Network.addNetworkStateListener((state) => {
+  return NetInfo.addEventListener((state) => {
     listener(toSnapshot(state));
   });
-  return () => {
-    subscription.remove();
-  };
 }
 
 /** True when the snapshot indicates the app can reach the API. */

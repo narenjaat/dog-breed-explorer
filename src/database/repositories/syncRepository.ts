@@ -45,11 +45,11 @@ function toPageNumbers(value: unknown): readonly number[] {
 /** Reads persisted sync state, falling back to the initial state. */
 export async function getSyncState(): Promise<SyncState> {
   const db = await getDatabase();
-  const row = await db.getFirstAsync<{ value: string }>(
+  const row = await db.getFirst<{ value: string }>(
     'SELECT value FROM sync_metadata WHERE key = ?',
-    SYNC_STATE_KEY,
+    [SYNC_STATE_KEY],
   );
-  if (row === null || row === undefined) return INITIAL_SYNC_STATE;
+  if (row === null) return INITIAL_SYNC_STATE;
 
   let parsed: unknown;
   try {
@@ -73,5 +73,5 @@ export async function getSyncState(): Promise<SyncState> {
 
 export async function saveSyncState(state: SyncState): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(UPSERT_SQL, SYNC_STATE_KEY, JSON.stringify(state), Date.now());
+  await db.run(UPSERT_SQL, [SYNC_STATE_KEY, JSON.stringify(state), Date.now()]);
 }

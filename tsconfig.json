@@ -1,5 +1,5 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": true,
@@ -20,6 +20,22 @@
     "types": [
       "jest",
       "node"
+    ],
+    "lib": [
+      "es2019",
+      "es2020.bigint",
+      "es2020.date",
+      "es2020.number",
+      "es2020.promise",
+      "es2020.string",
+      "es2020.symbol.wellknown",
+      "es2021.promise",
+      "es2021.string",
+      "es2021.weakref",
+      "es2022.array",
+      "es2022.object",
+      "es2022.string",
+      "es2022.error"
     ]
   },
   "include": [
@@ -29,6 +45,8 @@
   "exclude": [
     "node_modules",
     "coverage",
-    ".expo"
+    "ios/Pods",
+    "android",
+    "dist"
   ]
 }

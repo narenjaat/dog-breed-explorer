@@ -1,16 +1,43 @@
+# Secrets / signing
 *.jks
 *.key
-*.log
+*.keystore
+!debug.keystore
 *.mobileprovision
-*.orig.*
 *.p12
 *.p8
-.DS_Store
 .env
-.expo/
-android/
+
+# OS / editors
+.DS_Store
+.idea
+*.iml
+
+# Logs / scratch
+*.log
+*.orig.*
+.metro-health-check*
+
+# JS
+node_modules/
 coverage/
 dist/
-ios/
-node_modules/
-web-build/
+*.jsbundle
+
+# Android
+build/
+.gradle
+.kotlin/
+.cxx/
+local.properties
+*.hprof
+
+# iOS / Xcode
+xcuserdata
+DerivedData
+*.xcuserstate
+*.hmap
+*.ipa
+**/.xcode.env.local
+**/Pods/
+/vendor/bundle/

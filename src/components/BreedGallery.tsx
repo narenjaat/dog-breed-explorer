@@ -20,7 +20,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import type { ListRenderItemInfo, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { Image } from 'expo-image';
+import FastImage from '@d11/react-native-fast-image';
 
 import { resolveImageRequest } from '@/services/imageCacheService';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -131,12 +131,11 @@ function SlideComponent({
             <Text style={styles.imageFallbackText}>Image unavailable</Text>
           </View>
         ) : (
-          <Image
-            source={{ uri: request.uri }}
+          <FastImage
+            source={{ uri: request.uri, cache: request.cachePolicy }}
             style={styles.image}
-            contentFit="cover"
-            cachePolicy={request.cachePolicy}
-            transition={200}
+            resizeMode={FastImage.resizeMode.cover}
+            transition={FastImage.transition.fade}
             onError={handleError}
             accessibilityLabel={`${breedName}, photo ${String(index + 1)} of ${String(total)}`}
           />
