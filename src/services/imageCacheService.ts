@@ -45,10 +45,7 @@ export interface ImageRequest {
  * `galleryActive` (the visible slide) upgrades to `large`; the neighbouring
  * slides stay on `medium`, which is what keeps memory flat while swiping.
  */
-export function resolveImageRequest(
-  image: BreedImage | null,
-  context: ImageContext,
-): ImageRequest {
+export function resolveImageRequest(image: BreedImage | null, context: ImageContext): ImageRequest {
   if (image === null) return { uri: null, cachePolicy: 'web' };
 
   switch (context) {
@@ -95,9 +92,7 @@ export async function prefetchListThumbnails(
   thumbnailUrls: readonly (string | null)[],
   limit = 24,
 ): Promise<void> {
-  const urls = thumbnailUrls
-    .filter((url): url is string => url !== null)
-    .slice(0, limit);
+  const urls = thumbnailUrls.filter((url): url is string => url !== null).slice(0, limit);
   if (urls.length === 0) return;
 
   try {

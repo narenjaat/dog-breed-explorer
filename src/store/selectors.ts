@@ -50,12 +50,14 @@ export const selectGroupsById = createSelector(
 );
 
 /** True when any facet (not search) is constraining the list. */
-export const selectHasActiveFilters = createSelector([selectFilters], (filters): boolean =>
-  filters.groupIds.length > 0 ||
-  filters.sizeBands.length > 0 ||
-  filters.coatCategories.length > 0 ||
-  filters.hypoallergenic !== null ||
-  filters.traitKey !== null,
+export const selectHasActiveFilters = createSelector(
+  [selectFilters],
+  (filters): boolean =>
+    filters.groupIds.length > 0 ||
+    filters.sizeBands.length > 0 ||
+    filters.coatCategories.length > 0 ||
+    filters.hypoallergenic !== null ||
+    filters.traitKey !== null,
 );
 
 export const selectActiveFilterCount = createSelector([selectFilters], (filters): number => {
@@ -104,8 +106,12 @@ export const selectFilteredBreeds = createSelector(
 
     return breeds.filter((breed) => {
       if (hasGroups && (breed.groupId === null || !groupIds.includes(breed.groupId))) return false;
-      if (hasSizes && (breed.sizeBand === null || !sizeBands.includes(breed.sizeBand))) return false;
-      if (hasCoats && (breed.coatCategory === null || !coatCategories.includes(breed.coatCategory))) {
+      if (hasSizes && (breed.sizeBand === null || !sizeBands.includes(breed.sizeBand)))
+        return false;
+      if (
+        hasCoats &&
+        (breed.coatCategory === null || !coatCategories.includes(breed.coatCategory))
+      ) {
         return false;
       }
       if (hypoallergenic !== null && breed.hypoallergenic !== hypoallergenic) return false;

@@ -72,9 +72,7 @@ function SearchBarComponent({
           ]}
           accessibilityRole="button"
           accessibilityLabel={
-            activeFilterCount > 0
-              ? `Filters, ${String(activeFilterCount)} active`
-              : 'Filters'
+            activeFilterCount > 0 ? `Filters, ${String(activeFilterCount)} active` : 'Filters'
           }
         >
           <Text

@@ -92,7 +92,11 @@ function parseAttribution(source: Record<string, unknown>): ImageAttribution {
  * Parses one image. Returns null when no usable URL exists in any variant —
  * an image with no source is not renderable and would only add an empty slide.
  */
-function parseImage(raw: Record<string, unknown>, breedId: string, position: number): BreedImage | null {
+function parseImage(
+  raw: Record<string, unknown>,
+  breedId: string,
+  position: number,
+): BreedImage | null {
   const thumbUrl = optionalString(raw, 'thumb');
   const mediumUrl = optionalString(raw, 'medium');
   const largeUrl = optionalString(raw, 'large');

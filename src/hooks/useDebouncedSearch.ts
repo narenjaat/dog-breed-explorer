@@ -9,7 +9,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useAppDispatch, useAppSelector } from '@/store';
-import { searchCleared, searchInputChanged, searchQueryCommitted } from '@/store/slices/filtersSlice';
+import {
+  searchCleared,
+  searchInputChanged,
+  searchQueryCommitted,
+} from '@/store/slices/filtersSlice';
 import { selectSearchInput } from '@/store/selectors';
 
 /** 250ms: long enough to skip intermediate keystrokes, short enough to feel live. */

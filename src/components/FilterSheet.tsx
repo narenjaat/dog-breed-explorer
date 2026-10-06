@@ -12,12 +12,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Theme } from '@/theme';
 import { MIN_TOUCH_TARGET } from '@/theme';
-import type {
-  BreedGroup,
-  CoatCategory,
-  FilterableTraitKey,
-  SizeBand,
-} from '@/types/domain';
+import type { BreedGroup, CoatCategory, FilterableTraitKey, SizeBand } from '@/types/domain';
 import { COAT_CATEGORIES, SIZE_BANDS, TRAIT_SCORE_MAX } from '@/types/domain';
 import type { FiltersState } from '@/store/slices/filtersSlice';
 import { formatGroupName, humanizeKey } from '@/utils/format';
@@ -271,7 +266,11 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
 
             <Text style={styles.sectionTitle}>Hypoallergenic</Text>
             <View style={styles.chipRow}>
-              <Chip label="Yes" selected={filters.hypoallergenic === true} onPress={handleHypoYes} />
+              <Chip
+                label="Yes"
+                selected={filters.hypoallergenic === true}
+                onPress={handleHypoYes}
+              />
               <Chip label="No" selected={filters.hypoallergenic === false} onPress={handleHypoNo} />
             </View>
 

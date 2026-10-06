@@ -15,9 +15,7 @@ export const GROUP_IDS = {
 } as const;
 
 /** A fully-populated breed, as most records look. */
-export function makeCompleteBreed(
-  overrides: Partial<ApiBreedResource> = {},
-): ApiBreedResource {
+export function makeCompleteBreed(overrides: Partial<ApiBreedResource> = {}): ApiBreedResource {
   return {
     id: 'breed-complete-1',
     type: 'breed',

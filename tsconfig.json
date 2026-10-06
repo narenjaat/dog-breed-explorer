@@ -13,14 +13,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "types": [
-      "jest",
-      "node"
-    ],
+    "types": ["jest", "node"],
     "lib": [
       "es2019",
       "es2020.bigint",
@@ -38,15 +33,6 @@
       "es2022.error"
     ]
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "coverage",
-    "ios/Pods",
-    "android",
-    "dist"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "coverage", "ios/Pods", "android", "dist"]
 }

@@ -132,9 +132,9 @@ describe('requestJson', () => {
       return jsonResponse({ error: 'not found' }, 404);
     }) as unknown as typeof fetch;
 
-    await expect(requestJson('/breeds/nope', { maxRetries: 3, retryBaseDelayMs: 1 })).rejects.toThrow(
-      ApiError,
-    );
+    await expect(
+      requestJson('/breeds/nope', { maxRetries: 3, retryBaseDelayMs: 1 }),
+    ).rejects.toThrow(ApiError);
     expect(calls).toBe(1);
   });
 

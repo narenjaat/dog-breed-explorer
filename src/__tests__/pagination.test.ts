@@ -7,7 +7,11 @@ import { fetchAllBreeds, mergeBreedPages, resolvePageCount } from '@/api/breedsA
 import type { BreedPageResult } from '@/api/breedsApi';
 import { parseBreed } from '@/api/parsers';
 import type { Breed } from '@/types/domain';
-import { makeBreedWithWeight, makeCollectionResponse, makeCompleteBreed } from '@/__tests__/fixtures';
+import {
+  makeBreedWithWeight,
+  makeCollectionResponse,
+  makeCompleteBreed,
+} from '@/__tests__/fixtures';
 
 function breedOf(id: string, name: string): Breed {
   const parsed = parseBreed(makeBreedWithWeight(id, name, 10, 12));
@@ -71,7 +75,9 @@ describe('resolvePageCount', () => {
   it('derives the page count from the record total when last is absent', () => {
     const page: BreedPageResult = {
       pageNumber: 1,
-      breeds: Array.from({ length: 48 }, (_, index) => breedOf(`b${String(index)}`, `Breed ${String(index)}`)),
+      breeds: Array.from({ length: 48 }, (_, index) =>
+        breedOf(`b${String(index)}`, `Breed ${String(index)}`),
+      ),
       skipped: 0,
       totalRecords: 283,
       lastPage: null,
@@ -127,7 +133,12 @@ describe('fetchAllBreeds', () => {
 
       const data = Array.from({ length: perPage }, (_, index) => {
         const globalIndex = (pageNumber - 1) * perPage + index;
-        return makeBreedWithWeight(`breed-${String(globalIndex)}`, `Breed ${String(globalIndex)}`, 8, 12);
+        return makeBreedWithWeight(
+          `breed-${String(globalIndex)}`,
+          `Breed ${String(globalIndex)}`,
+          8,
+          12,
+        );
       });
 
       // Optionally repeat page 1's first record, simulating a shifted record.
@@ -208,11 +219,12 @@ describe('fetchAllBreeds', () => {
   });
 
   it('handles a single-page dataset with no pagination metadata', async () => {
-    globalThis.fetch = jest.fn(async () =>
-      new Response(JSON.stringify({ data: [makeCompleteBreed()] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    globalThis.fetch = jest.fn(
+      async () =>
+        new Response(JSON.stringify({ data: [makeCompleteBreed()] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
     ) as unknown as typeof fetch;
 
     const result = await fetchAllBreeds();

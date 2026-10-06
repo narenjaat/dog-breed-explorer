@@ -127,7 +127,10 @@ describe('parseBreed', () => {
     const resource = makeCompleteBreed({
       attributes: {
         name: 'Broken Images',
-        images: [{ id: 'i1', attribution: { author: 'Nobody' } }, { id: 'i2', thumb: 'https://ok' }],
+        images: [
+          { id: 'i1', attribution: { author: 'Nobody' } },
+          { id: 'i2', thumb: 'https://ok' },
+        ],
       },
     });
     const breed = parseBreed(resource);

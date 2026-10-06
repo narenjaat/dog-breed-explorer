@@ -134,8 +134,7 @@ export function useOfflineSync(): UseOfflineSyncResult {
 
       if (!connected) return;
 
-      const isStale =
-        lastSyncedAt === null || Date.now() - lastSyncedAt > STALE_AFTER_MS;
+      const isStale = lastSyncedAt === null || Date.now() - lastSyncedAt > STALE_AFTER_MS;
 
       // Sync when there is nothing cached, or when what is cached is old.
       if (cachedBreedCount === 0 || isStale) {

@@ -47,7 +47,10 @@ export function optionalBoolean(source: Record<string, unknown>, key: string): b
 }
 
 /** Reads a nested object property; returns an empty record when absent. */
-export function nestedRecord(source: Record<string, unknown>, key: string): Record<string, unknown> {
+export function nestedRecord(
+  source: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
   const value = source[key];
   return isRecord(value) ? value : {};
 }

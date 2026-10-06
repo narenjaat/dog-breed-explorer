@@ -49,7 +49,7 @@ function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.R
     [breed.thumbnailUrl, breed.images],
   );
 
-  const sizeLabel = breed.sizeBand === null ? null : SIZE_LABELS[breed.sizeBand] ?? null;
+  const sizeLabel = breed.sizeBand === null ? null : (SIZE_LABELS[breed.sizeBand] ?? null);
   const weight = formatRange(breed.maleWeight, 'kg');
 
   const uri = thumbnail.uri;

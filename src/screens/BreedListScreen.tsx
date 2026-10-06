@@ -11,13 +11,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  RefreshControl,
-  SectionList,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { SectionListData, SectionListRenderItemInfo } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

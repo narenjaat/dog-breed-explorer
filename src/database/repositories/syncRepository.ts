@@ -39,7 +39,9 @@ function toStatus(value: string | null): SyncState['status'] {
 
 function toPageNumbers(value: unknown): readonly number[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is number => typeof entry === 'number' && Number.isFinite(entry));
+  return value.filter(
+    (entry): entry is number => typeof entry === 'number' && Number.isFinite(entry),
+  );
 }
 
 /** Reads persisted sync state, falling back to the initial state. */

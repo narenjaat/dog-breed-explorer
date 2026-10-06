@@ -70,13 +70,8 @@ const syncSlice = createSlice({
   },
 });
 
-export const {
-  networkStatusChanged,
-  syncFailed,
-  syncFinished,
-  syncStarted,
-  syncStateRestored,
-} = syncSlice.actions;
+export const { networkStatusChanged, syncFailed, syncFinished, syncStarted, syncStateRestored } =
+  syncSlice.actions;
 
 export const syncReducer = syncSlice.reducer;
 export type { SyncStatus };

@@ -185,10 +185,12 @@ describe('upsert statement', () => {
 describe('image cascade', () => {
   it('removes a breed’s images when the breed is deleted', () => {
     upsert(breedOf('b1', 'Akita'), 1_000);
-    db.run(
-      'INSERT INTO breed_images (id, breed_id, position, thumb_url) VALUES (?, ?, ?, ?)',
-      ['i1', 'b1', 0, 'https://images.example/t'],
-    );
+    db.run('INSERT INTO breed_images (id, breed_id, position, thumb_url) VALUES (?, ?, ?, ?)', [
+      'i1',
+      'b1',
+      0,
+      'https://images.example/t',
+    ]);
 
     db.run('PRAGMA foreign_keys = ON');
     db.run('DELETE FROM breeds WHERE id = ?', ['b1']);

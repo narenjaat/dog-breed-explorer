@@ -7,7 +7,10 @@ export function escapeRegExpChars(value: string): string {
 
 /** Initials for the thumbnail placeholder shown before an image loads. */
 export function initialsFor(name: string): string {
-  const words = name.trim().split(/\s+/u).filter((word) => word.length > 0);
+  const words = name
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => word.length > 0);
   const first = words[0];
   if (first === undefined) return '?';
   const second = words[1];

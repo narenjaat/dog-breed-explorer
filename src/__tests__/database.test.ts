@@ -7,10 +7,7 @@
  */
 
 import { parseBreed } from '@/api/parsers';
-import {
-  buildBreedWhereClause,
-  escapeLikePattern,
-} from '@/database/repositories/breedRepository';
+import { buildBreedWhereClause, escapeLikePattern } from '@/database/repositories/breedRepository';
 import { mapBreedRow, mapImageRow } from '@/database/rowMappers';
 import type { BreedImageRow, BreedRow } from '@/database/rowMappers';
 import { LATEST_SCHEMA_VERSION, MIGRATIONS } from '@/database/migrations';

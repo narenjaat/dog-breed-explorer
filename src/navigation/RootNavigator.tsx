@@ -49,10 +49,7 @@ export function RootNavigator(): React.ReactElement {
           contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
-        <Stack.Screen
-          name="BreedList"
-          options={{ title: 'Dog Breeds', headerShown: false }}
-        >
+        <Stack.Screen name="BreedList" options={{ title: 'Dog Breeds', headerShown: false }}>
           {(props) => (
             <ErrorBoundary featureName="the breed list">
               <BreedListScreen {...props} />
