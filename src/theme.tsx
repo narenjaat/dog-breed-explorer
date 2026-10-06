@@ -4,29 +4,29 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 
 export interface ThemeColors {
-  readonly background: string;
-  readonly surface: string;
-  readonly surfaceElevated: string;
-  readonly border: string;
-  readonly borderStrong: string;
-  readonly textPrimary: string;
-  readonly textSecondary: string;
-  readonly textMuted: string;
-  readonly textInverse: string;
-  readonly accent: string;
-  readonly accentMuted: string;
-  readonly accentText: string;
-  readonly success: string;
-  readonly warning: string;
-  readonly warningSurface: string;
-  readonly warningText: string;
-  readonly danger: string;
-  readonly dangerSurface: string;
-  readonly dangerText: string;
-  readonly offlineSurface: string;
-  readonly offlineText: string;
-  readonly skeleton: string;
-  readonly overlay: string;
+  background: string;
+  surface: string;
+  surfaceElevated: string;
+  border: string;
+  borderStrong: string;
+  textPrimary: string;
+  textSecondary: string;
+  textMuted: string;
+  textInverse: string;
+  accent: string;
+  accentMuted: string;
+  accentText: string;
+  success: string;
+  warning: string;
+  warningSurface: string;
+  warningText: string;
+  danger: string;
+  dangerSurface: string;
+  dangerText: string;
+  offlineSurface: string;
+  offlineText: string;
+  skeleton: string;
+  overlay: string;
 }
 
 /**
@@ -93,14 +93,14 @@ export const spacing = {
   lg: 16,
   xl: 24,
   xxl: 32,
-} as const;
+};
 
 export const radius = {
   sm: 6,
   md: 10,
   lg: 14,
   pill: 999,
-} as const;
+};
 
 export const typography = {
   title: { fontSize: 28, fontWeight: '700' },
@@ -122,11 +122,11 @@ export const BREED_ROW_HEIGHT = 92;
 export const SECTION_HEADER_HEIGHT = 40;
 
 export interface Theme {
-  readonly colors: ThemeColors;
-  readonly isDark: boolean;
-  readonly spacing: typeof spacing;
-  readonly radius: typeof radius;
-  readonly typography: typeof typography;
+  colors: ThemeColors;
+  isDark: boolean;
+  spacing: typeof spacing;
+  radius: typeof radius;
+  typography: typeof typography;
 }
 
 export function createTheme(isDark: boolean): Theme {
@@ -145,12 +145,12 @@ export const darkTheme = createTheme(true);
 const ThemeContext = createContext<Theme>(darkTheme);
 
 export interface ThemeProviderProps {
-  readonly children: React.ReactNode;
+  children: React.ReactNode;
   /** Forces a scheme. Used by tests and by the dark-mode screenshot pass. */
-  readonly forcedScheme?: 'light' | 'dark';
+  forcedScheme?: 'light' | 'dark';
 }
 
-export function ThemeProvider({ children, forcedScheme }: ThemeProviderProps): React.ReactElement {
+export function ThemeProvider({ children, forcedScheme }: ThemeProviderProps) {
   const systemScheme = useColorScheme();
   const scheme = forcedScheme ?? systemScheme ?? 'light';
 

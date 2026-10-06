@@ -48,7 +48,7 @@ function buildBreed(options: {
   coatLength?: string;
   hypoallergenic?: boolean;
   goodWithChildren?: number;
-  otherNames?: readonly string[];
+  otherNames?: string[];
 }): Breed {
   const weight = options.weightKg ?? 15;
   const resource: ApiBreedResource = {
@@ -79,13 +79,13 @@ function buildBreed(options: {
   return breed;
 }
 
-const GROUPS: readonly BreedGroup[] = [
+const GROUPS: BreedGroup[] = [
   { id: GROUP_IDS.herding, name: 'Herding Group' },
   { id: GROUP_IDS.hound, name: 'Hound Group' },
   { id: GROUP_IDS.toy, name: 'Toy Group' },
 ];
 
-const BREEDS: readonly Breed[] = [
+const BREEDS: Breed[] = [
   buildBreed({
     id: 'b1',
     name: 'Border Collie',
@@ -140,8 +140,7 @@ function seededStore() {
   return store;
 }
 
-const namesOf = (breeds: readonly Breed[]): readonly string[] =>
-  breeds.map((breed) => breed.name).sort();
+const namesOf = (breeds: Breed[]): string[] => breeds.map((breed) => breed.name).sort();
 
 describe('search', () => {
   it('returns everything when the query is empty', () => {

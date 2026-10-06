@@ -1,24 +1,41 @@
 /**
- * Memoised selectors.
+ * Selectors: small functions that read data out of the Redux state.
  *
- * The list screen's whole performance story lives here: filtering and
- * grouping run inside `createSelector`, so they recompute only when the
- * breeds array or a filter value actually changes — not on every render,
- * every keystroke, or every scroll frame.
+ * Breeds and groups are stored "normalised" (see store/index.ts):
+ *
+ *   state.breeds.breeds = {
+ *     ids:      ['id-1', 'id-2', ...],              // the A-Z order
+ *     entities: { 'id-1': {...}, 'id-2': {...} },   // id -> breed object
+ *   }
+ *
+ * `createSelector` remembers its last result and only recomputes when its
+ * inputs change. So filtering 283 breeds runs when a filter changes, not on
+ * every render or scroll frame.
  */
 
 import { createSelector } from '@reduxjs/toolkit';
 
 import type { RootState } from '@/store';
-import { breedsAdapter, groupsAdapter } from '@/store';
 import type { Breed, BreedGroup } from '@/types';
 
-const breedSelectors = breedsAdapter.getSelectors<RootState>((state) => state.breeds.breeds);
-const groupSelectors = groupsAdapter.getSelectors<RootState>((state) => state.breeds.groups);
+/** All breeds as an array, A-Z. */
+export const selectAllBreeds = createSelector(
+  [(state: RootState) => state.breeds.breeds],
+  (breeds) => breeds.ids.map((id) => breeds.entities[id]),
+);
 
-export const selectAllBreeds = breedSelectors.selectAll;
-export const selectBreedTotal = breedSelectors.selectTotal;
-export const selectAllGroups = groupSelectors.selectAll;
+/** How many breeds are cached (283 after a full sync). */
+export const selectBreedTotal = (state: RootState) => state.breeds.breeds.ids.length;
+
+/** All groups as an array, A-Z. */
+export const selectAllGroups = createSelector(
+  [(state: RootState) => state.breeds.groups],
+  (groups) => groups.ids.map((id) => groups.entities[id]),
+);
+
+/** One breed by id. A direct object lookup, no searching through the list. */
+export const selectBreedById = (state: RootState, breedId: string): Breed | undefined =>
+  state.breeds.breeds.entities[breedId];
 
 export const selectIsHydrating = (state: RootState): boolean => state.breeds.isHydrating;
 
@@ -29,29 +46,10 @@ export const selectSearchQuery = (state: RootState): string => state.filters.sea
 export const selectSyncState = (state: RootState) => state.sync;
 export const selectIsOnline = (state: RootState): boolean => state.sync.isOnline;
 
-/** O(1) detail-screen lookup, thanks to the normalised entity map. */
-export const selectBreedById = (state: RootState, breedId: string): Breed | undefined =>
-  breedSelectors.selectById(state, breedId);
-
 /** Group lookup map, for turning a breed's `group_id` into a label. */
 export const selectGroupsById = createSelector(
   [selectAllGroups],
-  (groups): ReadonlyMap<string, BreedGroup> => {
-    const map = new Map<string, BreedGroup>();
-    for (const group of groups) map.set(group.id, group);
-    return map;
-  },
-);
-
-/** True when any facet (not search) is constraining the list. */
-export const selectHasActiveFilters = createSelector(
-  [selectFilters],
-  (filters): boolean =>
-    filters.groupIds.length > 0 ||
-    filters.sizeBands.length > 0 ||
-    filters.coatCategories.length > 0 ||
-    filters.hypoallergenic !== null ||
-    filters.traitKey !== null,
+  (groups) => new Map<string, BreedGroup>(groups.map((group) => [group.id, group])),
 );
 
 export const selectActiveFilterCount = createSelector([selectFilters], (filters): number => {
@@ -60,6 +58,9 @@ export const selectActiveFilterCount = createSelector([selectFilters], (filters)
   if (filters.traitKey !== null) count += 1;
   return count;
 });
+
+/** True when any filter (not search) is narrowing the list. */
+export const selectHasActiveFilters = (state: RootState) => selectActiveFilterCount(state) > 0;
 
 /**
  * Applies every facet to the breed list.
@@ -70,7 +71,7 @@ export const selectActiveFilterCount = createSelector([selectFilters], (filters)
  */
 export const selectFilteredBreeds = createSelector(
   [selectAllBreeds, selectFilters],
-  (breeds, filters): readonly Breed[] => {
+  (breeds, filters): Breed[] => {
     const {
       searchQuery,
       groupIds,
@@ -128,9 +129,9 @@ export const selectFilteredBreeds = createSelector(
 
 /** One section of the grouped list. */
 export interface BreedSection {
-  readonly id: string;
-  readonly title: string;
-  readonly data: readonly Breed[];
+  id: string;
+  title: string;
+  data: Breed[];
 }
 
 const UNGROUPED_ID = '__ungrouped__';
@@ -145,7 +146,7 @@ const UNGROUPED_TITLE = 'Other breeds';
  */
 export const selectGroupedBreeds = createSelector(
   [selectFilteredBreeds, selectGroupsById],
-  (breeds, groupsById): readonly BreedSection[] => {
+  (breeds, groupsById): BreedSection[] => {
     const buckets = new Map<string, Breed[]>();
 
     for (const breed of breeds) {

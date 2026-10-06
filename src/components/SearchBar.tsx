@@ -24,14 +24,15 @@ import type { Theme } from '@/theme';
 const SEARCH_DEBOUNCE_MS = 250;
 
 interface UseDebouncedSearchResult {
-  readonly value: string;
-  readonly onChangeText: (text: string) => void;
-  readonly onClear: () => void;
+  value: string;
+  onChangeText: (text: string) => void;
+  onClear: () => void;
 }
 
 function useDebouncedSearch(debounceMs: number = SEARCH_DEBOUNCE_MS): UseDebouncedSearchResult {
   const dispatch = useAppDispatch();
   const value = useAppSelector(selectSearchInput);
+  // Holds the pending debounce timer (whatever type setTimeout returns).
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -67,10 +68,10 @@ function useDebouncedSearch(debounceMs: number = SEARCH_DEBOUNCE_MS): UseDebounc
 }
 
 export interface SearchBarProps {
-  readonly onOpenFilters: () => void;
+  onOpenFilters: () => void;
 }
 
-function SearchBarComponent({ onOpenFilters }: SearchBarProps): React.ReactElement {
+function SearchBarComponent({ onOpenFilters }: SearchBarProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { value, onChangeText, onClear } = useDebouncedSearch();
@@ -116,7 +117,7 @@ function SearchBarComponent({ onOpenFilters }: SearchBarProps): React.ReactEleme
           ]}
           accessibilityRole="button"
           accessibilityLabel={
-            activeFilterCount > 0 ? `Filters, ${String(activeFilterCount)} active` : 'Filters'
+            activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'
           }
         >
           <Text
@@ -125,13 +126,13 @@ function SearchBarComponent({ onOpenFilters }: SearchBarProps): React.ReactEleme
               activeFilterCount > 0 && styles.filterButtonTextActive,
             ]}
           >
-            Filters{activeFilterCount > 0 ? ` (${String(activeFilterCount)})` : ''}
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </Text>
         </Pressable>
       </View>
 
       <Text style={styles.resultCount} accessibilityLiveRegion="polite">
-        {resultCount === 1 ? '1 breed' : `${String(resultCount)} breeds`}
+        {resultCount === 1 ? '1 breed' : `${resultCount} breeds`}
       </Text>
     </View>
   );

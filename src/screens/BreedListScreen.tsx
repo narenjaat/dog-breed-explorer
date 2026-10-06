@@ -38,7 +38,7 @@ import type { Breed } from '@/types';
 import type { BreedListScreenProps } from '@/navigation';
 import { formatGroupName } from '@/format';
 
-export function BreedListScreen({ navigation }: BreedListScreenProps): React.ReactElement {
+export function BreedListScreen({ navigation }: BreedListScreenProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -56,8 +56,8 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
 
   const { refresh } = useOfflineSync();
 
-  // --- Stable callbacks ---------------------------------------------------
-
+  // useCallback keeps these functions the same between renders, so the
+  // memoised rows do not re-render for no reason.
   const handleBreedPress = useCallback(
     (breedId: string, breedName: string) => {
       navigation.navigate('BreedDetails', { breedId, breedName });
@@ -76,65 +76,52 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
     dispatch(allFiltersCleared());
   }, [dispatch]);
 
-  // --- List rendering -----------------------------------------------------
-
   const renderItem = useCallback(
-    ({ item }: SectionListRenderItemInfo<Breed, BreedSection>): React.ReactElement => (
+    ({ item }: SectionListRenderItemInfo<Breed, BreedSection>) => (
       <BreedListItem breed={item} onPress={handleBreedPress} />
     ),
     [handleBreedPress],
   );
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: SectionListData<Breed, BreedSection> }): React.ReactElement => (
+    ({ section }: { section: SectionListData<Breed, BreedSection> }) => (
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{formatGroupName(section.title)}</Text>
-        <Text style={styles.sectionCount}>{String(section.data.length)}</Text>
+        <Text style={styles.sectionCount}>{section.data.length}</Text>
       </View>
     ),
     [styles],
   );
 
-  const keyExtractor = useCallback((item: Breed): string => item.id, []);
+  const keyExtractor = useCallback((item: Breed) => item.id, []);
 
   /**
-   * Rows and headers are fixed-height, so offsets are computable without
-   * measuring — this is what makes scrolling to an arbitrary index cheap.
-   * SectionList interleaves header/footer entries, hence the +2 per section.
+   * Every row and header has a fixed height, so we can calculate where item
+   * N sits instead of letting the list measure it. That keeps scrolling smooth.
+   *
+   * SectionList counts items like this (each section adds a header AND an
+   * empty footer):  [header, row, row, ..., footer, header, row, ...]
    */
   const getItemLayout = useCallback(
-    (
-      data: readonly SectionListData<Breed, BreedSection>[] | null,
-      index: number,
-    ): { length: number; offset: number; index: number } => {
-      if (data === null) {
-        return { length: BREED_ROW_HEIGHT, offset: BREED_ROW_HEIGHT * index, index };
-      }
+    (data: SectionListData<Breed, BreedSection>[] | null, index: number) => {
+      let offset = 0; // pixels from the top of the list
+      let itemsLeft = index; // how far into the list item N is
 
-      let offset = 0;
-      let remaining = index;
-
-      for (const section of data) {
-        // Section header
-        if (remaining === 0) return { length: SECTION_HEADER_HEIGHT, offset, index };
+      for (const section of data ?? []) {
+        if (itemsLeft === 0) return { length: SECTION_HEADER_HEIGHT, offset, index };
         offset += SECTION_HEADER_HEIGHT;
-        remaining -= 1;
+        itemsLeft -= 1;
 
-        if (remaining < section.data.length) {
-          return {
-            length: BREED_ROW_HEIGHT,
-            offset: offset + remaining * BREED_ROW_HEIGHT,
-            index,
-          };
+        const rowCount = section.data.length;
+        if (itemsLeft < rowCount) {
+          return { length: BREED_ROW_HEIGHT, offset: offset + itemsLeft * BREED_ROW_HEIGHT, index };
         }
-        offset += section.data.length * BREED_ROW_HEIGHT;
-        remaining -= section.data.length;
+        offset += rowCount * BREED_ROW_HEIGHT;
+        itemsLeft -= rowCount;
 
-        // Section footer (zero-height here, but it still consumes an index)
-        if (remaining === 0) return { length: 0, offset, index };
-        remaining -= 1;
+        if (itemsLeft === 0) return { length: 0, offset, index }; // footer
+        itemsLeft -= 1;
       }
-
       return { length: BREED_ROW_HEIGHT, offset, index };
     },
     [],
@@ -209,7 +196,7 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
       />
 
       <SectionList
-        sections={sections as readonly SectionListData<Breed, BreedSection>[]}
+        sections={sections as SectionListData<Breed, BreedSection>[]}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}

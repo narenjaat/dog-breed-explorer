@@ -28,18 +28,18 @@ import { COAT_CATEGORIES, FILTERABLE_TRAIT_KEYS, SIZE_BANDS, TRAIT_SCORE_MAX } f
 import { formatGroupName, humanizeKey } from '@/format';
 
 export interface FilterSheetProps {
-  readonly visible: boolean;
-  readonly onClose: () => void;
+  visible: boolean;
+  onClose: () => void;
 }
 
-const SIZE_LABELS: Readonly<Record<SizeBand, string>> = {
+const SIZE_LABELS: Record<SizeBand, string> = {
   small: 'Small (≤10kg)',
   medium: 'Medium (≤25kg)',
   large: 'Large (≤45kg)',
   giant: 'Giant (>45kg)',
 };
 
-const COAT_LABELS: Readonly<Record<CoatCategory, string>> = {
+const COAT_LABELS: Record<CoatCategory, string> = {
   short: 'Short',
   medium: 'Medium',
   long: 'Long',
@@ -51,12 +51,12 @@ const COAT_LABELS: Readonly<Record<CoatCategory, string>> = {
 const SCORE_OPTIONS = Array.from({ length: TRAIT_SCORE_MAX }, (_, index) => index + 1);
 
 interface ChipProps {
-  readonly label: string;
-  readonly selected: boolean;
-  readonly onPress: () => void;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
 }
 
-function Chip({ label, selected, onPress }: ChipProps): React.ReactElement {
+function Chip({ label, selected, onPress }: ChipProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -83,7 +83,7 @@ function Chip({ label, selected, onPress }: ChipProps): React.ReactElement {
  * nothing measurable, and the list screen does not have to relay every
  * facet's callback.
  */
-export function FilterSheet({ visible, onClose }: FilterSheetProps): React.ReactElement {
+export function FilterSheet({ visible, onClose }: FilterSheetProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const dispatch = useAppDispatch();
@@ -201,7 +201,7 @@ export function FilterSheet({ visible, onClose }: FilterSheetProps): React.React
                   {SCORE_OPTIONS.map((score) => (
                     <Chip
                       key={score}
-                      label={`${String(score)}+`}
+                      label={`${score}+`}
                       selected={filters.traitMinScore === score}
                       onPress={() => dispatch(traitMinScoreChanged(score))}
                     />
@@ -215,10 +215,10 @@ export function FilterSheet({ visible, onClose }: FilterSheetProps): React.React
             onPress={onClose}
             style={styles.applyButton}
             accessibilityRole="button"
-            accessibilityLabel={`Show ${String(resultCount)} breeds`}
+            accessibilityLabel={`Show ${resultCount} breeds`}
           >
             <Text style={styles.applyButtonText}>
-              Show {resultCount === 1 ? '1 breed' : `${String(resultCount)} breeds`}
+              Show {resultCount === 1 ? '1 breed' : `${resultCount} breeds`}
             </Text>
           </Pressable>
         </View>

@@ -18,32 +18,19 @@ import { useTheme } from '@/theme';
 export type RootStackParamList = {
   BreedList: undefined;
   BreedDetails: {
-    readonly breedId: string;
+    breedId: string;
     /** Passed so the header can render before the breed is read from cache. */
-    readonly breedName: string;
+    breedName: string;
   };
 };
 
-export type RootStackScreenProps<TRoute extends keyof RootStackParamList> = NativeStackScreenProps<
-  RootStackParamList,
-  TRoute
->;
-
-export type BreedListScreenProps = RootStackScreenProps<'BreedList'>;
-export type BreedDetailsScreenProps = RootStackScreenProps<'BreedDetails'>;
-
-/**
- * Makes `useNavigation()` type-safe app-wide without per-call generics.
- */
-declare global {
-  namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
-  }
-}
+// Props each screen receives (navigation + route), typed from the list above.
+export type BreedListScreenProps = NativeStackScreenProps<RootStackParamList, 'BreedList'>;
+export type BreedDetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'BreedDetails'>;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function RootNavigator(): React.ReactElement {
+export function RootNavigator() {
   const theme = useTheme();
 
   // Hand React Navigation our palette so its own chrome (headers, card

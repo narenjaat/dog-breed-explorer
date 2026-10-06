@@ -11,9 +11,9 @@ import type { DB } from '@op-engineering/op-sqlite';
 import type { SQLiteBindValue } from '@/database/repository';
 
 export interface Migration {
-  readonly version: number;
-  readonly name: string;
-  readonly up: string;
+  version: number;
+  name: string;
+  up: string;
 }
 
 /**
@@ -130,7 +130,7 @@ const MIGRATION_001: Migration = {
   `,
 };
 
-export const MIGRATIONS: readonly Migration[] = [MIGRATION_001];
+export const MIGRATIONS: Migration[] = [MIGRATION_001];
 
 export const LATEST_SCHEMA_VERSION: number = MIGRATIONS.reduce(
   (max, migration) => Math.max(max, migration.version),
@@ -154,7 +154,7 @@ export async function runMigrations(db: SqlDatabase): Promise<number> {
       await db.exec(migration.up);
     });
     // PRAGMA cannot be parameterised, and the value is a trusted literal.
-    await db.exec(`PRAGMA user_version = ${String(migration.version)}`);
+    await db.exec(`PRAGMA user_version = ${migration.version}`);
     appliedVersion = migration.version;
   }
 
@@ -165,7 +165,7 @@ export const DATABASE_NAME = 'tripare-dog-breeds.db';
 
 /** A compiled statement reused across many rows inside one transaction. */
 export interface SqlStatement {
-  execute(params: readonly SQLiteBindValue[]): Promise<void>;
+  execute(params: SQLiteBindValue[]): Promise<void>;
 }
 
 /** The subset of SQLite the repositories need. */
@@ -173,9 +173,10 @@ export interface SqlDatabase {
   /** Runs one or more statements with no parameters and no result. */
   exec(sql: string): Promise<void>;
   /** Runs a single write statement. */
-  run(sql: string, params?: readonly SQLiteBindValue[]): Promise<void>;
-  getAll<T>(sql: string, params?: readonly SQLiteBindValue[]): Promise<T[]>;
-  getFirst<T>(sql: string, params?: readonly SQLiteBindValue[]): Promise<T | null>;
+  run(sql: string, params?: SQLiteBindValue[]): Promise<void>;
+  /** `T` is the row shape, e.g. `getAll<BreedRow>(...)` returns `BreedRow[]`. */
+  getAll<T>(sql: string, params?: SQLiteBindValue[]): Promise<T[]>;
+  getFirst<T>(sql: string, params?: SQLiteBindValue[]): Promise<T | null>;
   /**
    * Runs `work` inside BEGIN/COMMIT, rolling back if it throws. op-sqlite
    * queues transactions, so two concurrent callers never nest a BEGIN.
@@ -191,14 +192,14 @@ function wrap(db: DB): SqlDatabase {
       await db.execute(sql);
     },
     async run(sql, params = []) {
-      await db.execute(sql, [...params]);
+      await db.execute(sql, params);
     },
-    async getAll<T>(sql: string, params: readonly SQLiteBindValue[] = []) {
-      const result = await db.execute(sql, [...params]);
+    async getAll<T>(sql: string, params: SQLiteBindValue[] = []) {
+      const result = await db.execute(sql, params);
       return result.rows as T[];
     },
-    async getFirst<T>(sql: string, params: readonly SQLiteBindValue[] = []) {
-      const result = await db.execute(sql, [...params]);
+    async getFirst<T>(sql: string, params: SQLiteBindValue[] = []) {
+      const result = await db.execute(sql, params);
       return (result.rows[0] as T | undefined) ?? null;
     },
     async withTransaction(work) {
@@ -212,7 +213,7 @@ function wrap(db: DB): SqlDatabase {
       const statement = db.prepareStatement(sql);
       return {
         async execute(params) {
-          await statement.bind([...params]);
+          await statement.bind(params);
           await statement.execute();
         },
       };

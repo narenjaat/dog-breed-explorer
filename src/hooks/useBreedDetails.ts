@@ -1,33 +1,21 @@
 /**
  * Loads one breed for the detail screen.
  *
- * Cache-first: the Redux projection renders immediately, SQLite fills in the
- * images the list query deliberately skipped, and a network refresh is
- * attempted last. Each stage is optional — offline, the first two still work.
+ * Cache first: the Redux copy shows immediately, SQLite adds the images (the
+ * list never loads them), and a network refresh runs last. Offline, the first
+ * two still work.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { fetchBreedById } from '@/api/dogApi';
-import { isApiError } from '@/api/client';
 import { getBreedById, upsertBreeds } from '@/database/repository';
 import { useAppDispatch, useAppSelector, breedUpdated } from '@/store';
 import { selectBreedById, selectIsOnline } from '@/store/selectors';
 import type { RootState } from '@/store';
 import type { Breed } from '@/types';
 
-export interface UseBreedDetailsResult {
-  readonly breed: Breed | null;
-  /** True only while there is nothing at all to show. */
-  readonly isLoading: boolean;
-  /** True while a background refresh runs over already-visible content. */
-  readonly isRefreshing: boolean;
-  /** Set when the refresh failed but cached content is still on screen. */
-  readonly refreshError: string | null;
-  readonly refresh: () => void;
-}
-
-export function useBreedDetails(breedId: string): UseBreedDetailsResult {
+export function useBreedDetails(breedId: string) {
   const dispatch = useAppDispatch();
   const online = useAppSelector(selectIsOnline);
   const cachedBreed = useAppSelector((state: RootState) => selectBreedById(state, breedId));
@@ -37,76 +25,50 @@ export function useBreedDetails(breedId: string): UseBreedDetailsResult {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
-  const mountedRef = useRef(true);
-
-  /** Images live only in SQLite, so the detail screen always reads them. */
-  const loadFromDatabase = useCallback(async (): Promise<Breed | null> => {
-    try {
-      const stored = await getBreedById(breedId);
-      // A network refresh that resolved first holds newer data than this
-      // read, so the database copy only fills an empty slot.
-      if (mountedRef.current && stored !== null) setDbBreed((current) => current ?? stored);
-      return stored;
-    } catch {
-      // The Redux copy is still usable; it just has no gallery.
-      return null;
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
+  // Step 1: read the breed (with its images) from SQLite.
+  useEffect(() => {
+    getBreedById(breedId)
+      .then((stored) => {
+        // If a network refresh already finished, its data is newer: keep it.
+        if (stored !== null) setDbBreed((current) => current ?? stored);
+      })
+      .catch(() => {
+        // The Redux copy still works; it just has no gallery.
+      })
+      .finally(() => setIsLoading(false));
   }, [breedId]);
 
-  const refresh = useCallback(async (): Promise<void> => {
+  // Step 2 (called by the screen): fetch a fresh copy from the API.
+  const refresh = useCallback(async () => {
     if (!online) {
-      if (mountedRef.current) {
-        setRefreshError('You are offline. Showing cached details.');
-      }
+      setRefreshError('You are offline. Showing cached details.');
       return;
     }
 
-    if (mountedRef.current) {
-      setIsRefreshing(true);
-      setRefreshError(null);
-    }
-
+    setIsRefreshing(true);
+    setRefreshError(null);
     try {
       const fresh = await fetchBreedById(breedId);
       await upsertBreeds([fresh], Date.now());
-      if (!mountedRef.current) return;
-
       dispatch(breedUpdated(fresh));
       setDbBreed(fresh);
-    } catch (error) {
-      if (!mountedRef.current) return;
-      // Refresh failure is non-fatal: cached content stays on screen.
-      const message = isApiError(error)
-        ? 'Could not refresh this breed. Showing cached details.'
-        : 'Could not refresh this breed.';
-      setRefreshError(message);
+    } catch {
+      // Not fatal: the cached details stay on screen.
+      setRefreshError('Could not refresh this breed. Showing cached details.');
     } finally {
-      if (mountedRef.current) setIsRefreshing(false);
+      setIsRefreshing(false);
     }
   }, [breedId, online, dispatch]);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    void loadFromDatabase();
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [loadFromDatabase]);
-
-  const handleRefresh = useCallback(() => {
-    void refresh();
-  }, [refresh]);
-
-  // Prefer the SQLite copy: it is the only one carrying images.
+  // Prefer the SQLite copy: it is the only one with images.
   const breed = dbBreed ?? cachedBreed ?? null;
 
   return {
     breed,
+    /** True only while there is nothing at all to show. */
     isLoading: isLoading && breed === null,
     isRefreshing,
     refreshError,
-    refresh: handleRefresh,
+    refresh,
   };
 }

@@ -23,47 +23,34 @@ import type {
 } from '@/types';
 import { SCORED_TRAIT_KEYS } from '@/types';
 
+// ---- Safe readers for untrusted JSON --------------------------------------
+// Each one returns null (or an empty value) instead of throwing when a field
+// is missing or has the wrong type.
+
+/** True for a plain object like `{ a: 1 }` (not null, not an array). */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function isString(value: unknown): value is string {
-  return typeof value === 'string';
-}
-
-/** True only for real, finite numbers (rejects NaN/Infinity from bad JSON). */
-export function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-export function isBoolean(value: unknown): value is boolean {
-  return typeof value === 'boolean';
-}
-
-export function isArray(value: unknown): value is readonly unknown[] {
-  return Array.isArray(value);
-}
-
-/** Reads a string property, returning null when absent, empty or wrong-typed. */
+/** A non-empty string, or null. */
 export function optionalString(source: Record<string, unknown>, key: string): string | null {
   const value = source[key];
-  if (!isString(value)) return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  return value.trim();
 }
 
-/** Reads a finite-number property, returning null when absent or wrong-typed. */
+/** A real number (not NaN or Infinity), or null. */
 export function optionalNumber(source: Record<string, unknown>, key: string): number | null {
   const value = source[key];
-  return isFiniteNumber(value) ? value : null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 export function optionalBoolean(source: Record<string, unknown>, key: string): boolean | null {
   const value = source[key];
-  return isBoolean(value) ? value : null;
+  return typeof value === 'boolean' ? value : null;
 }
 
-/** Reads a nested object property; returns an empty record when absent. */
+/** A nested object, or `{}` when missing. */
 export function nestedRecord(
   source: Record<string, unknown>,
   key: string,
@@ -72,34 +59,27 @@ export function nestedRecord(
   return isRecord(value) ? value : {};
 }
 
-/**
- * Reads an array of non-empty strings, dropping any non-string entries.
- * Returns a frozen empty array when the field is absent or malformed.
- */
-export function stringArray(source: Record<string, unknown>, key: string): readonly string[] {
+/** An array of non-empty strings; anything else in the array is skipped. */
+export function stringArray(source: Record<string, unknown>, key: string): string[] {
   const value = source[key];
-  if (!isArray(value)) return EMPTY_STRINGS;
-  const out: string[] = [];
-  for (const entry of value) {
-    if (isString(entry)) {
-      const trimmed = entry.trim();
-      if (trimmed.length > 0) out.push(trimmed);
-    }
-  }
-  return out;
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '');
 }
 
-/** Reads an array of objects, dropping non-object entries. */
+/** An array of objects; anything else in the array is skipped. */
 export function recordArray(
   source: Record<string, unknown>,
   key: string,
-): readonly Record<string, unknown>[] {
+): Record<string, unknown>[] {
   const value = source[key];
-  if (!isArray(value)) return [];
+  if (!Array.isArray(value)) return [];
   return value.filter(isRecord);
 }
 
-const EMPTY_STRINGS: readonly string[] = Object.freeze([]);
+// ---- Derived facets ---------------------------------------------------------
 
 /**
  * Weight thresholds in kilograms, applied to the breed's *typical adult
@@ -112,13 +92,13 @@ const EMPTY_STRINGS: readonly string[] = Object.freeze([]);
  *   large  <= 45kg   (Labrador, German Shepherd)
  *   giant   > 45kg   (Mastiff, Great Dane)
  */
-export const SIZE_WEIGHT_THRESHOLDS_KG = { small: 10, medium: 25, large: 45 } as const;
+export const SIZE_WEIGHT_THRESHOLDS_KG = { small: 10, medium: 25, large: 45 };
 
 /**
  * Height fallback in centimetres, used only when no weight is recorded.
  * Calibrated to roughly match the weight bands at the withers.
  */
-export const SIZE_HEIGHT_THRESHOLDS_CM = { small: 30, medium: 50, large: 65 } as const;
+export const SIZE_HEIGHT_THRESHOLDS_CM = { small: 30, medium: 50, large: 65 };
 
 /** Separator used inside the search haystack; never typed by a user. */
 const HAYSTACK_SEPARATOR = ' | ';
@@ -191,8 +171,8 @@ export function deriveSizeBand(
  * medium — and length is used otherwise.
  */
 export function deriveCoatCategory(coat: Coat): CoatCategory | null {
-  const type = coat.type === null ? null : coat.type.toLowerCase();
-  const length = coat.length === null ? null : coat.length.toLowerCase();
+  const type = coat.type?.toLowerCase() ?? null;
+  const length = coat.length?.toLowerCase() ?? null;
 
   if (type === 'hairless' || length === 'hairless') return 'hairless';
   if (type === 'wire') return 'wire';
@@ -214,18 +194,18 @@ export function deriveCoatCategory(coat: Coat): CoatCategory | null {
  * Builds the lowercased haystack searched by the list screen.
  * Precomputed so a keystroke never re-lowercases 283 names + alias arrays.
  */
-export function buildSearchHaystack(name: string, otherNames: readonly string[]): string {
+export function buildSearchHaystack(name: string, otherNames: string[]): string {
   return [name, ...otherNames].join(HAYSTACK_SEPARATOR).toLowerCase();
 }
 
 /** `meta.pagination` from a collection response; every field may be absent. */
 export interface ApiPagination {
-  readonly current?: number;
-  readonly next?: number;
-  readonly prev?: number;
-  readonly first?: number;
-  readonly last?: number;
-  readonly records?: number;
+  current?: number;
+  next?: number;
+  prev?: number;
+  first?: number;
+  last?: number;
+  records?: number;
 }
 
 const EMPTY_RANGE: Range = { min: null, max: null };
@@ -302,7 +282,7 @@ function parseImage(
     return null;
   }
 
-  const id = optionalString(raw, 'id') ?? `${breedId}:${String(position)}`;
+  const id = optionalString(raw, 'id') ?? `${breedId}:${position}`;
 
   return {
     id,
@@ -316,7 +296,7 @@ function parseImage(
   };
 }
 
-function parseSources(source: Record<string, unknown>): readonly BreedSource[] {
+function parseSources(source: Record<string, unknown>): BreedSource[] {
   const out: BreedSource[] = [];
   for (const raw of recordArray(source, 'sources')) {
     const url = optionalString(raw, 'url');
@@ -412,15 +392,14 @@ export function parsePagination(value: unknown): ApiPagination {
 }
 
 /**
- * Extracts the `data` array from a collection response and parses each entry
- * with `parseItem`, dropping entries that fail. Returns both the parsed items
- * and how many were skipped, so sync can surface partial-parse damage instead
- * of silently shrinking the dataset.
+ * Takes the `data` array from a list response and parses each entry with
+ * `parseItem`. Bad entries are skipped and counted, not thrown.
+ * `T` is what one item becomes, e.g. `Breed` when `parseItem` is `parseBreed`.
  */
 export function parseCollection<T>(
   value: unknown,
   parseItem: (entry: unknown) => T | null,
-): { readonly items: readonly T[]; readonly skipped: number } {
+): { items: T[]; skipped: number } {
   if (!isRecord(value)) return { items: [], skipped: 0 };
   const data = value['data'];
   if (!Array.isArray(data)) return { items: [], skipped: 0 };

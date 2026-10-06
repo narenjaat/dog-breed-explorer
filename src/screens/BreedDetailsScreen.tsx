@@ -31,12 +31,12 @@ import type { Breed, ScoredTraitKey } from '@/types';
 import type { BreedDetailsScreenProps } from '@/navigation';
 
 export interface TraitScaleProps {
-  readonly label: string;
+  label: string;
   /** 1-5 score, or null when the API did not rate this trait. */
-  readonly score: number | null;
+  score: number | null;
 }
 
-function TraitScaleComponent({ label, score }: TraitScaleProps): React.ReactElement {
+function TraitScaleComponent({ label, score }: TraitScaleProps) {
   const theme = useTheme();
   const styles = useMemo(() => createTraitStyles(theme), [theme]);
 
@@ -50,16 +50,14 @@ function TraitScaleComponent({ label, score }: TraitScaleProps): React.ReactElem
       accessibilityRole="progressbar"
       // Announces "Energy, 3 of 5" rather than reading five anonymous bars.
       accessibilityLabel={
-        hasScore
-          ? `${label}, ${String(rounded)} out of ${String(TRAIT_SCORE_MAX)}`
-          : `${label}, not rated`
+        hasScore ? `${label}, ${rounded} out of ${TRAIT_SCORE_MAX}` : `${label}, not rated`
       }
       accessibilityValue={hasScore ? { min: 0, max: TRAIT_SCORE_MAX, now: rounded } : undefined}
     >
       <View style={styles.header}>
         <Text style={styles.label}>{label}</Text>
         <Text style={[styles.value, !hasScore && styles.valueMuted]}>
-          {hasScore ? `${String(rounded)}/${String(TRAIT_SCORE_MAX)}` : UNKNOWN_PLACEHOLDER}
+          {hasScore ? `${rounded}/${TRAIT_SCORE_MAX}` : UNKNOWN_PLACEHOLDER}
         </Text>
       </View>
 
@@ -78,13 +76,13 @@ function TraitScaleComponent({ label, score }: TraitScaleProps): React.ReactElem
 export const TraitScale = memo(TraitScaleComponent);
 
 export interface ExerciseScaleProps {
-  readonly minutes: number | null;
+  minutes: number | null;
 }
 
 /** Upper bound of the observed `exercise_minutes` range, used for the bar. */
 const EXERCISE_MAX_MINUTES = 120;
 
-function ExerciseScaleComponent({ minutes }: ExerciseScaleProps): React.ReactElement {
+function ExerciseScaleComponent({ minutes }: ExerciseScaleProps) {
   const theme = useTheme();
   const styles = useMemo(() => createTraitStyles(theme), [theme]);
 
@@ -120,7 +118,7 @@ function ExerciseScaleComponent({ minutes }: ExerciseScaleProps): React.ReactEle
 
 export const ExerciseScale = memo(ExerciseScaleComponent);
 
-function createTraitStyles(theme: ReturnType<typeof useTheme>) {
+function createTraitStyles(theme: Theme) {
   return StyleSheet.create({
     container: {
       marginBottom: theme.spacing.lg,
@@ -176,11 +174,11 @@ function createTraitStyles(theme: ReturnType<typeof useTheme>) {
   });
 }
 
-const TABS = ['Overview', 'Traits', 'Gallery'] as const;
-type TabName = (typeof TABS)[number];
+type TabName = 'Overview' | 'Traits' | 'Gallery';
+const TABS: TabName[] = ['Overview', 'Traits', 'Gallery'];
 
 /** Human labels for the trait rows, in the order the brief lists them. */
-const TRAIT_LABELS: Readonly<Record<ScoredTraitKey, string>> = {
+const TRAIT_LABELS: Record<ScoredTraitKey, string> = {
   energy: 'Energy',
   barking: 'Barking',
   drooling: 'Drooling',
@@ -194,11 +192,11 @@ const TRAIT_LABELS: Readonly<Record<ScoredTraitKey, string>> = {
 };
 
 interface FactRowProps {
-  readonly label: string;
-  readonly value: string;
+  label: string;
+  value: string;
 }
 
-function FactRow({ label, value }: FactRowProps): React.ReactElement {
+function FactRow({ label, value }: FactRowProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const isUnknown = value === UNKNOWN_PLACEHOLDER;
@@ -215,7 +213,7 @@ function FactRow({ label, value }: FactRowProps): React.ReactElement {
   );
 }
 
-function OverviewTab({ breed }: { readonly breed: Breed }): React.ReactElement {
+function OverviewTab({ breed }: { breed: Breed }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const groupsById = useAppSelector(selectGroupsById);
@@ -271,7 +269,7 @@ function OverviewTab({ breed }: { readonly breed: Breed }): React.ReactElement {
   );
 }
 
-function TraitsTab({ breed }: { readonly breed: Breed }): React.ReactElement {
+function TraitsTab({ breed }: { breed: Breed }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -315,12 +313,12 @@ function TraitsTab({ breed }: { readonly breed: Breed }): React.ReactElement {
 }
 
 interface TabButtonProps {
-  readonly tab: TabName;
-  readonly isActive: boolean;
-  readonly onPress: (tab: TabName) => void;
+  tab: TabName;
+  isActive: boolean;
+  onPress: (tab: TabName) => void;
 }
 
-function TabButton({ tab, isActive, onPress }: TabButtonProps): React.ReactElement {
+function TabButton({ tab, isActive, onPress }: TabButtonProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -341,7 +339,7 @@ function TabButton({ tab, isActive, onPress }: TabButtonProps): React.ReactEleme
   );
 }
 
-export function BreedDetailsScreen({ route }: BreedDetailsScreenProps): React.ReactElement {
+export function BreedDetailsScreen({ route }: BreedDetailsScreenProps) {
   const { breedId, breedName } = route.params;
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);

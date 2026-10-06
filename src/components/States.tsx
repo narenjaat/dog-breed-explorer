@@ -11,7 +11,7 @@ import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 
 /** A single shimmering placeholder row, matching the real row's geometry. */
-function SkeletonRowComponent(): React.ReactElement {
+function SkeletonRowComponent() {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const opacity = useRef(new Animated.Value(0.4)).current;
@@ -55,11 +55,11 @@ function SkeletonRowComponent(): React.ReactElement {
 const SkeletonRow = memo(SkeletonRowComponent);
 
 export interface ListSkeletonProps {
-  readonly rowCount?: number;
+  rowCount?: number;
 }
 
 /** Placeholder list shown during the very first load, before any cache. */
-function ListSkeletonComponent({ rowCount = 8 }: ListSkeletonProps): React.ReactElement {
+function ListSkeletonComponent({ rowCount = 8 }: ListSkeletonProps) {
   return (
     <View accessibilityLabel="Loading breeds" accessibilityRole="progressbar">
       {Array.from({ length: rowCount }, (_, index) => (
@@ -72,18 +72,13 @@ function ListSkeletonComponent({ rowCount = 8 }: ListSkeletonProps): React.React
 export const ListSkeleton = memo(ListSkeletonComponent);
 
 export interface EmptyStateProps {
-  readonly title: string;
-  readonly message: string;
-  readonly actionLabel?: string;
-  readonly onAction?: () => void;
+  title: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
-function EmptyStateComponent({
-  title,
-  message,
-  actionLabel,
-  onAction,
-}: EmptyStateProps): React.ReactElement {
+function EmptyStateComponent({ title, message, actionLabel, onAction }: EmptyStateProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -171,9 +166,9 @@ function createStyles(theme: Theme) {
 
 export interface ErrorContext {
   /** Which feature area failed, e.g. "the photo gallery". */
-  readonly feature: string;
+  feature: string;
   /** React's component stack, when the error came from a render. */
-  readonly componentStack?: string | null;
+  componentStack?: string | null;
 }
 
 export function reportError(error: Error, context: ErrorContext): void {
@@ -185,34 +180,34 @@ export function reportError(error: Error, context: ErrorContext): void {
 }
 
 export interface ErrorBoundaryProps {
-  readonly children: ReactNode;
+  children: ReactNode;
   /** Shown in the fallback, e.g. "the breed gallery". */
-  readonly featureName?: string;
+  featureName?: string;
 }
 
 interface ErrorBoundaryState {
-  readonly error: Error | null;
+  error: Error | null;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  override state: ErrorBoundaryState = { error: null };
+  state: ErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error };
   }
 
-  override componentDidCatch(error: Error, info: ErrorInfo): void {
+  componentDidCatch(error: Error, info: ErrorInfo): void {
     reportError(error, {
       feature: this.props.featureName ?? 'app',
       componentStack: info.componentStack,
     });
   }
 
-  private readonly handleReset = (): void => {
+  private handleReset = (): void => {
     this.setState({ error: null });
   };
 
-  override render(): ReactNode {
+  render(): ReactNode {
     const { error } = this.state;
     const { children, featureName } = this.props;
 

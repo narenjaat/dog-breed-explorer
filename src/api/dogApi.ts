@@ -17,42 +17,32 @@ import {
 import type { Breed, BreedGroup } from '@/types';
 
 export interface BreedPageResult {
-  readonly pageNumber: number;
-  readonly breeds: readonly Breed[];
-  /** Records present in the payload that failed to parse. */
-  readonly skipped: number;
-  /** Total record count the API reports, when it reports one. */
-  readonly totalRecords: number | null;
-  /** Last page number the API reports; absent on the final page. */
-  readonly lastPage: number | null;
-  readonly hasNextPage: boolean;
+  pageNumber: number;
+  breeds: Breed[];
+  /** Total breeds the API says exist, if it says. */
+  totalRecords: number | null;
+  /** Last page number the API reports, if it says. */
+  lastPage: number | null;
 }
 
 export interface PageFailure {
-  readonly pageNumber: number;
-  readonly error: ApiError;
+  pageNumber: number;
+  error: ApiError;
 }
 
 export interface AllBreedsResult {
-  /** De-duplicated breeds from every page that succeeded. */
-  readonly breeds: readonly Breed[];
-  readonly pagesRequested: number;
-  readonly pagesSucceeded: number;
-  readonly failures: readonly PageFailure[];
-  /** Duplicate ids dropped while merging. */
-  readonly duplicatesDropped: number;
-  /** Records that failed to parse across all pages. */
-  readonly recordsSkipped: number;
-  /** `meta.pagination.records` — the count the API claims exists. */
-  readonly expectedTotal: number | null;
-  /** True when at least one page failed but others succeeded. */
-  readonly partial: boolean;
+  /** Breeds from every page that loaded, without duplicates. */
+  breeds: Breed[];
+  pagesRequested: number;
+  failures: PageFailure[];
+  /** True when some pages failed but at least page 1 loaded. */
+  partial: boolean;
 }
 
 export interface FetchOptions {
-  readonly signal?: AbortSignal;
+  signal?: AbortSignal;
   /** Overrides the retry backoff base delay (tests use a tiny value). */
-  readonly retryBaseDelayMs?: number;
+  retryBaseDelayMs?: number;
 }
 
 /** Fetches and parses a single page of breeds. */
@@ -66,17 +56,12 @@ export async function fetchBreedPage(
     retryBaseDelayMs: options.retryBaseDelayMs,
   });
 
-  const { items, skipped } = parseCollection(payload, parseBreed);
   const pagination = parsePagination(payload);
-
   return {
     pageNumber,
-    breeds: items,
-    skipped,
+    breeds: parseCollection(payload, parseBreed).items,
     totalRecords: pagination.records ?? null,
     lastPage: pagination.last ?? null,
-    // `next` is absent on the final page — this is how we know to stop.
-    hasNextPage: pagination.next !== undefined,
   };
 }
 
@@ -94,62 +79,43 @@ export async function fetchBreedById(id: string, options: FetchOptions = {}): Pr
 }
 
 /**
- * Fetches every page of breeds and merges them into one dataset.
+ * Fetches every page of breeds and merges them into one list.
  *
- * Strategy:
- *  1. Fetch page 1 to learn the page count (`meta.pagination.last`).
- *  2. Fetch the remaining pages concurrently — they are independent, and
- *     6 parallel requests finish far faster than 6 sequential ones.
- *  3. Merge with an id-keyed Map so duplicates across page boundaries
- *     collapse instead of producing repeated rows.
- *
- * Page 1 failing is fatal (we cannot even learn the page count). Any later
- * page failing is survivable and reported via `failures`.
+ *  1. Fetch page 1 to learn how many pages there are.
+ *  2. Fetch the other pages in parallel (much faster than one by one).
+ *  3. Merge them, dropping any breed that appears on two pages.
  */
 export async function fetchAllBreeds(options: FetchOptions = {}): Promise<AllBreedsResult> {
+  // Page 1 tells us how many pages exist. If it fails, the whole call fails.
   const firstPage = await fetchBreedPage(1, options);
+  const pageCount = resolvePageCount(firstPage);
 
+  const otherPageNumbers: number[] = [];
+  for (let page = 2; page <= pageCount; page++) otherPageNumbers.push(page);
+
+  // `allSettled`, not `all`: one failed page must not throw away the others.
+  const results = await Promise.allSettled(
+    otherPageNumbers.map((pageNumber) => fetchBreedPage(pageNumber, options)),
+  );
+
+  const pages = [firstPage];
   const failures: PageFailure[] = [];
-  const pages: BreedPageResult[] = [firstPage];
-
-  const lastPage = resolvePageCount(firstPage);
-
-  if (lastPage > 1) {
-    const pageNumbers: number[] = [];
-    for (let page = 2; page <= lastPage; page += 1) pageNumbers.push(page);
-
-    // `allSettled`, not `all`: one rejected page must not discard the rest.
-    const settled = await Promise.allSettled(
-      pageNumbers.map(async (pageNumber) => fetchBreedPage(pageNumber, options)),
-    );
-
-    for (let index = 0; index < settled.length; index += 1) {
-      const outcome = settled[index];
-      const pageNumber = pageNumbers[index];
-      if (outcome === undefined || pageNumber === undefined) continue;
-
-      if (outcome.status === 'fulfilled') {
-        pages.push(outcome.value);
-      } else {
-        const error = toApiError(outcome.reason, null);
-        // A caller-initiated cancellation is not a data failure: propagate it
-        // so sync can abandon the run rather than persist a truncated dataset.
-        if (error.kind === 'aborted') throw error;
-        failures.push({ pageNumber, error });
-      }
+  results.forEach((result, index) => {
+    const pageNumber = otherPageNumbers[index];
+    if (result.status === 'fulfilled') {
+      pages.push(result.value);
+      return;
     }
-  }
-
-  const merged = mergeBreedPages(pages);
+    const error = toApiError(result.reason, null);
+    // Cancelled by the caller: stop the whole sync rather than save half the data.
+    if (error.kind === 'aborted') throw error;
+    failures.push({ pageNumber, error });
+  });
 
   return {
-    breeds: merged.breeds,
-    pagesRequested: lastPage,
-    pagesSucceeded: pages.length,
+    breeds: mergeBreedPages(pages),
+    pagesRequested: pageCount,
     failures,
-    duplicatesDropped: merged.duplicatesDropped,
-    recordsSkipped: pages.reduce((sum, page) => sum + page.skipped, 0),
-    expectedTotal: firstPage.totalRecords,
     partial: failures.length > 0,
   };
 }
@@ -182,38 +148,21 @@ export function resolvePageCount(firstPage: BreedPageResult): number {
  * first occurrence wins — later pages shifting during pagination should not
  * overwrite a record already shown to the user.
  */
-export function mergeBreedPages(pages: readonly BreedPageResult[]): {
-  readonly breeds: readonly Breed[];
-  readonly duplicatesDropped: number;
-} {
+export function mergeBreedPages(pages: BreedPageResult[]): Breed[] {
   const ordered = [...pages].sort((a, b) => a.pageNumber - b.pageNumber);
-
   const byId = new Map<string, Breed>();
-  let duplicatesDropped = 0;
-
   for (const page of ordered) {
     for (const breed of page.breeds) {
-      if (byId.has(breed.id)) {
-        duplicatesDropped += 1;
-        continue;
-      }
-      byId.set(breed.id, breed);
+      if (!byId.has(breed.id)) byId.set(breed.id, breed);
     }
   }
-
-  return { breeds: [...byId.values()], duplicatesDropped };
+  return [...byId.values()];
 }
 
-export interface GroupsResult {
-  readonly groups: readonly BreedGroup[];
-  readonly skipped: number;
-}
-
-export async function fetchGroups(options: FetchOptions = {}): Promise<GroupsResult> {
+export async function fetchGroups(options: FetchOptions = {}): Promise<BreedGroup[]> {
   const payload = await requestJson('/groups', {
     signal: options.signal,
     retryBaseDelayMs: options.retryBaseDelayMs,
   });
-  const { items, skipped } = parseCollection(payload, parseGroup);
-  return { groups: items, skipped };
+  return parseCollection(payload, parseGroup).items;
 }

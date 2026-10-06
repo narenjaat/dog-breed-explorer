@@ -43,7 +43,7 @@ export function formatOrigin(origin: Origin): string {
   return parts.length > 0 ? parts.join(' · ') : UNKNOWN_PLACEHOLDER;
 }
 
-export function formatList(values: readonly string[]): string {
+export function formatList(values: string[]): string {
   return values.length > 0 ? values.join(', ') : UNKNOWN_PLACEHOLDER;
 }
 
@@ -54,7 +54,7 @@ export function formatHypoallergenic(value: boolean | null): string {
 
 export function formatExerciseMinutes(minutes: number | null): string {
   if (minutes === null) return UNKNOWN_PLACEHOLDER;
-  if (minutes < 60) return `${String(minutes)} min/day`;
+  if (minutes < 60) return `${minutes} min/day`;
   const hours = minutes / 60;
   return `${formatNumber(hours)} hr/day`;
 }
@@ -82,14 +82,14 @@ export function formatRelativeTime(timestamp: number | null, now: number = Date.
 
   if (elapsed < HOUR_MS) {
     const minutes = Math.floor(elapsed / MINUTE_MS);
-    return `${String(minutes)} minute${minutes === 1 ? '' : 's'} ago`;
+    return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
   }
   if (elapsed < DAY_MS) {
     const hours = Math.floor(elapsed / HOUR_MS);
-    return `${String(hours)} hour${hours === 1 ? '' : 's'} ago`;
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
   }
   const days = Math.floor(elapsed / DAY_MS);
-  return `${String(days)} day${days === 1 ? '' : 's'} ago`;
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
 /**

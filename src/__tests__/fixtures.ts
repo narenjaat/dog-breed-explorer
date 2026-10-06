@@ -10,20 +10,20 @@
 
 /** A numeric range. The API emits `{}` (not null) when a range is unknown. */
 export interface ApiRange {
-  readonly min?: number;
-  readonly max?: number;
+  min?: number;
+  max?: number;
 }
 
 export interface ApiOrigin {
-  readonly era?: string;
-  readonly region?: string;
-  readonly country?: string;
+  era?: string;
+  region?: string;
+  country?: string;
 }
 
 export interface ApiCoat {
-  readonly type?: string;
-  readonly length?: string;
-  readonly colors?: readonly string[];
+  type?: string;
+  length?: string;
+  colors?: string[];
 }
 
 /**
@@ -33,82 +33,82 @@ export interface ApiCoat {
  * Note `exercise_minutes` is a duration (observed 20..120), NOT a 1-5 score.
  */
 export interface ApiTraits {
-  readonly energy?: number;
-  readonly barking?: number;
-  readonly drooling?: number;
-  readonly grooming?: number;
-  readonly shedding?: number;
-  readonly trainability?: number;
-  readonly good_with_dogs?: number;
-  readonly exercise_minutes?: number;
-  readonly apartment_friendly?: number;
-  readonly good_with_children?: number;
-  readonly good_with_strangers?: number;
-  readonly temperament?: readonly string[];
+  energy?: number;
+  barking?: number;
+  drooling?: number;
+  grooming?: number;
+  shedding?: number;
+  trainability?: number;
+  good_with_dogs?: number;
+  exercise_minutes?: number;
+  apartment_friendly?: number;
+  good_with_children?: number;
+  good_with_strangers?: number;
+  temperament?: string[];
 }
 
 export interface ApiImageAttribution {
-  readonly author?: string;
-  readonly license?: string;
-  readonly license_url?: string;
-  readonly source?: string;
-  readonly source_url?: string;
+  author?: string;
+  license?: string;
+  license_url?: string;
+  source?: string;
+  source_url?: string;
 }
 
 export interface ApiImage {
-  readonly id: string;
-  readonly url?: string;
-  readonly thumb?: string;
-  readonly medium?: string;
-  readonly large?: string;
-  readonly attribution?: ApiImageAttribution;
+  id: string;
+  url?: string;
+  thumb?: string;
+  medium?: string;
+  large?: string;
+  attribution?: ApiImageAttribution;
 }
 
 export interface ApiSource {
-  readonly url?: string;
-  readonly title?: string;
+  url?: string;
+  title?: string;
 }
 
 export interface ApiBreedAttributes {
-  readonly name?: string;
-  readonly description?: string;
-  readonly life?: ApiRange;
-  readonly male_weight?: ApiRange;
-  readonly female_weight?: ApiRange;
-  readonly male_height?: ApiRange;
-  readonly female_height?: ApiRange;
-  readonly hypoallergenic?: boolean;
-  readonly origin?: ApiOrigin;
-  readonly coat?: ApiCoat;
-  readonly traits?: ApiTraits;
-  readonly other_names?: readonly string[];
-  readonly recognized_by?: readonly string[];
-  readonly sources?: readonly ApiSource[];
-  readonly images?: readonly ApiImage[];
+  name?: string;
+  description?: string;
+  life?: ApiRange;
+  male_weight?: ApiRange;
+  female_weight?: ApiRange;
+  male_height?: ApiRange;
+  female_height?: ApiRange;
+  hypoallergenic?: boolean;
+  origin?: ApiOrigin;
+  coat?: ApiCoat;
+  traits?: ApiTraits;
+  other_names?: string[];
+  recognized_by?: string[];
+  sources?: ApiSource[];
+  images?: ApiImage[];
 }
 
 export interface ApiRelationshipRef {
-  readonly id?: string;
-  readonly type?: string;
+  id?: string;
+  type?: string;
 }
 
 export interface ApiBreedRelationships {
-  readonly group?: { readonly data?: ApiRelationshipRef | null };
+  group?: { data?: ApiRelationshipRef | null };
 }
 
 export interface ApiBreedResource {
-  readonly id: string;
-  readonly type: string;
-  readonly attributes?: ApiBreedAttributes;
-  readonly relationships?: ApiBreedRelationships;
+  id: string;
+  type: string;
+  attributes?: ApiBreedAttributes;
+  relationships?: ApiBreedRelationships;
 }
 
 export interface ApiGroupResource {
-  readonly id: string;
-  readonly type: string;
-  readonly attributes?: { readonly name?: string };
-  readonly relationships?: {
-    readonly breeds?: { readonly data?: readonly ApiRelationshipRef[] };
+  id: string;
+  type: string;
+  attributes?: { name?: string };
+  relationships?: {
+    breeds?: { data?: ApiRelationshipRef[] };
   };
 }
 
@@ -244,7 +244,7 @@ export function makeBreedWithWeight(
 
 /** Wraps resources in a JSON:API collection envelope with pagination. */
 export function makeCollectionResponse(
-  data: readonly ApiBreedResource[],
+  data: ApiBreedResource[],
   pagination: { current: number; next?: number; last?: number; records: number },
 ): unknown {
   return { data, meta: { pagination }, links: {} };
@@ -254,7 +254,7 @@ export function makeGroup(id: string, name: string): ApiGroupResource {
   return { id, type: 'group', attributes: { name } };
 }
 
-export const SAMPLE_GROUPS: readonly ApiGroupResource[] = [
+export const SAMPLE_GROUPS: ApiGroupResource[] = [
   makeGroup(GROUP_IDS.herding, 'Herding Group'),
   makeGroup(GROUP_IDS.hound, 'Hound Group'),
   makeGroup(GROUP_IDS.toy, 'Toy Group'),

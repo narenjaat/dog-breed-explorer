@@ -17,10 +17,10 @@ const mockGetSyncState = jest.fn();
 const mockSaveSyncState = jest.fn(async () => undefined);
 
 jest.mock('@/database/repository', () => ({
-  upsertBreeds: (...args: readonly unknown[]) => mockUpsertBreeds(...(args as [])),
-  upsertGroups: (...args: readonly unknown[]) => mockUpsertGroups(...(args as [])),
+  upsertBreeds: (...args: unknown[]) => mockUpsertBreeds(...(args as [])),
+  upsertGroups: (...args: unknown[]) => mockUpsertGroups(...(args as [])),
   getSyncState: () => mockGetSyncState() as unknown,
-  saveSyncState: (...args: readonly unknown[]) => mockSaveSyncState(...(args as [])),
+  saveSyncState: (...args: unknown[]) => mockSaveSyncState(...(args as [])),
 }));
 
 import { buildPartialMessage, synchronize } from '@/syncService';
@@ -29,11 +29,11 @@ import { INITIAL_SYNC_STATE } from '@/types';
 const originalFetch = globalThis.fetch;
 
 interface MockApiOptions {
-  readonly pageCount?: number;
-  readonly perPage?: number;
-  readonly failPages?: readonly number[];
-  readonly failGroups?: boolean;
-  readonly emptyBreeds?: boolean;
+  pageCount?: number;
+  perPage?: number;
+  failPages?: number[];
+  failGroups?: boolean;
+  emptyBreeds?: boolean;
 }
 
 function mockApi(options: MockApiOptions = {}): void {
@@ -61,8 +61,8 @@ function mockApi(options: MockApiOptions = {}): void {
       ? []
       : Array.from({ length: perPage }, (_, index) =>
           makeBreedWithWeight(
-            `breed-${String((pageNumber - 1) * perPage + index)}`,
-            `Breed ${String((pageNumber - 1) * perPage + index)}`,
+            `breed-${(pageNumber - 1) * perPage + index}`,
+            `Breed ${(pageNumber - 1) * perPage + index}`,
             10,
             12,
           ),
@@ -105,7 +105,7 @@ describe('synchronize — success', () => {
     expect(result.failedPages).toEqual([]);
     expect(mockUpsertBreeds).toHaveBeenCalledTimes(1);
 
-    const [written] = mockUpsertBreeds.mock.calls[0] as unknown as [readonly unknown[]];
+    const [written] = mockUpsertBreeds.mock.calls[0] as unknown as [unknown[]];
     expect(written).toHaveLength(30);
   });
 
@@ -141,7 +141,7 @@ describe('synchronize — partial failure', () => {
     expect(result.failedPages).toEqual([2]);
     expect(mockUpsertBreeds).toHaveBeenCalledTimes(1);
     // Page 2's 10 breeds are lost; the other 20 are saved.
-    const [saved] = mockUpsertBreeds.mock.calls[0] as unknown as [readonly unknown[]];
+    const [saved] = mockUpsertBreeds.mock.calls[0] as unknown as [unknown[]];
     expect(saved).toHaveLength(20);
   });
 

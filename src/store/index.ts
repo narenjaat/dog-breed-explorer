@@ -19,14 +19,22 @@ import type {
   SizeBand,
   SyncResult,
   SyncState,
-  SyncStatus,
 } from '@/types';
 import { TRAIT_SCORE_MIN, INITIAL_SYNC_STATE } from '@/types';
 import { useDispatch, useSelector } from 'react-redux';
-import type { TypedUseSelectorHook } from 'react-redux';
+
+// ---- Breeds slice ------------------------------------------------------------
+//
+// `createEntityAdapter` (from Redux Toolkit) stores a list as:
+//   { ids: ['id-1', 'id-2'], entities: { 'id-1': breed1, 'id-2': breed2 } }
+// so one breed can be found by id instantly. It also gives ready-made update
+// functions, used in the reducers below:
+//   setAll(state, list)      -> replace everything with `list`
+//   upsertMany(state, list)  -> add new items, update existing ones, delete nothing
+//   upsertOne(state, item)   -> same, for a single item
+// `sortComparer` keeps `ids` in A-Z order, so the list never sorts during render.
 
 export const breedsAdapter = createEntityAdapter<Breed>({
-  // Sorted once on write so the list never sorts 283 rows during render.
   sortComparer: (a, b) => a.name.localeCompare(b.name),
 });
 
@@ -35,14 +43,14 @@ export const groupsAdapter = createEntityAdapter<BreedGroup>({
 });
 
 export interface BreedsState {
-  readonly breeds: EntityState<Breed, string>;
-  readonly groups: EntityState<BreedGroup, string>;
+  breeds: EntityState<Breed, string>; // { ids, entities } for breeds
+  groups: EntityState<BreedGroup, string>; // { ids, entities } for groups
   /** True until the first load attempt resolves, for the skeleton state. */
-  readonly isHydrating: boolean;
+  isHydrating: boolean;
 }
 
 const INITIAL_BREEDS_STATE: BreedsState = {
-  breeds: breedsAdapter.getInitialState(),
+  breeds: breedsAdapter.getInitialState(), // { ids: [], entities: {} }
   groups: groupsAdapter.getInitialState(),
   isHydrating: true,
 };
@@ -54,17 +62,10 @@ const breedsSlice = createSlice({
     hydrationStarted(state) {
       state.isHydrating = true;
     },
-    /**
-     * Replaces the projection with what the local cache holds.
-     * `setAll` is correct here (unlike for sync writes) because the cache is
-     * the single source of truth for what the app knows.
-     */
-    hydratedFromCache(
-      state,
-      action: PayloadAction<{ breeds: readonly Breed[]; groups: readonly BreedGroup[] }>,
-    ) {
-      breedsAdapter.setAll(state.breeds, action.payload.breeds as Breed[]);
-      groupsAdapter.setAll(state.groups, action.payload.groups as BreedGroup[]);
+    /** App start: replace everything with what SQLite has. */
+    hydratedFromCache(state, action: PayloadAction<{ breeds: Breed[]; groups: BreedGroup[] }>) {
+      breedsAdapter.setAll(state.breeds, action.payload.breeds);
+      groupsAdapter.setAll(state.groups, action.payload.groups);
       state.isHydrating = false;
     },
     /** The cache could not be read; the network path can still fill it. */
@@ -72,15 +73,15 @@ const breedsSlice = createSlice({
       state.isHydrating = false;
     },
     /**
-     * Applies freshly-synced records. `upsertMany` (not `setAll`) so a partial
-     * sync adds and updates without deleting breeds whose page failed.
+     * After a sync. `upsertMany`, not `setAll`: if a page failed, its breeds
+     * are missing from this list, and they must not be deleted.
      */
-    breedsUpserted(state, action: PayloadAction<readonly Breed[]>) {
-      breedsAdapter.upsertMany(state.breeds, action.payload as Breed[]);
+    breedsUpserted(state, action: PayloadAction<Breed[]>) {
+      breedsAdapter.upsertMany(state.breeds, action.payload);
       state.isHydrating = false;
     },
-    groupsUpserted(state, action: PayloadAction<readonly BreedGroup[]>) {
-      groupsAdapter.upsertMany(state.groups, action.payload as BreedGroup[]);
+    groupsUpserted(state, action: PayloadAction<BreedGroup[]>) {
+      groupsAdapter.upsertMany(state.groups, action.payload);
     },
     /** Replaces a single breed after a detail-screen refresh. */
     breedUpdated(state, action: PayloadAction<Breed>) {
@@ -102,16 +103,16 @@ export const breedsReducer = breedsSlice.reducer;
 
 export interface FiltersState {
   /** Raw text from the input, updated on every keystroke. */
-  readonly searchInput: string;
+  searchInput: string;
   /** Debounced text that actually drives querying. */
-  readonly searchQuery: string;
-  readonly groupIds: readonly string[];
-  readonly sizeBands: readonly SizeBand[];
-  readonly coatCategories: readonly CoatCategory[];
+  searchQuery: string;
+  groupIds: string[];
+  sizeBands: SizeBand[];
+  coatCategories: CoatCategory[];
   /** true=only hypoallergenic, false=only non-, null=no constraint. */
-  readonly hypoallergenic: boolean | null;
-  readonly traitKey: FilterableTraitKey | null;
-  readonly traitMinScore: number;
+  hypoallergenic: boolean | null;
+  traitKey: FilterableTraitKey | null;
+  traitMinScore: number;
 }
 
 const INITIAL_FILTERS_STATE: FiltersState = {
@@ -125,8 +126,8 @@ const INITIAL_FILTERS_STATE: FiltersState = {
   traitMinScore: TRAIT_SCORE_MIN,
 };
 
-/** Adds or removes a value — the multi-select toggle semantics. */
-function toggle<T>(values: readonly T[], value: T): readonly T[] {
+/** Multi-select: removes the value if present, adds it otherwise. */
+function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value];
 }
 
@@ -147,13 +148,13 @@ const filtersSlice = createSlice({
       state.searchQuery = '';
     },
     groupToggled(state, action: PayloadAction<string>) {
-      state.groupIds = [...toggle(state.groupIds, action.payload)];
+      state.groupIds = toggle(state.groupIds, action.payload);
     },
     sizeBandToggled(state, action: PayloadAction<SizeBand>) {
-      state.sizeBands = [...toggle(state.sizeBands, action.payload)];
+      state.sizeBands = toggle(state.sizeBands, action.payload);
     },
     coatCategoryToggled(state, action: PayloadAction<CoatCategory>) {
-      state.coatCategories = [...toggle(state.coatCategories, action.payload)];
+      state.coatCategories = toggle(state.coatCategories, action.payload);
     },
     /** Tri-state: selecting the active value clears the constraint. */
     hypoallergenicToggled(state, action: PayloadAction<boolean>) {
@@ -198,9 +199,9 @@ export const {
 export const filtersReducer = filtersSlice.reducer;
 
 export interface SyncSliceState extends SyncState {
-  readonly isOnline: boolean;
+  isOnline: boolean;
   /** True when the user pulled to refresh, to distinguish from auto-sync. */
-  readonly isManualRefresh: boolean;
+  isManualRefresh: boolean;
 }
 
 const INITIAL_SYNC_SLICE_STATE: SyncSliceState = {
@@ -215,11 +216,7 @@ const syncSlice = createSlice({
   reducers: {
     /** Restores persisted sync metadata at startup. */
     syncStateRestored(state, action: PayloadAction<SyncState>) {
-      const restored = action.payload;
-      state.status = restored.status;
-      state.lastSyncedAt = restored.lastSyncedAt;
-      state.failedPages = [...restored.failedPages];
-      state.lastError = restored.lastError;
+      Object.assign(state, action.payload);
     },
     syncStarted(state, action: PayloadAction<{ manual: boolean }>) {
       state.status = 'syncing';
@@ -228,7 +225,7 @@ const syncSlice = createSlice({
     syncFinished(state, action: PayloadAction<SyncResult>) {
       const result = action.payload;
       state.status = result.status;
-      state.failedPages = [...result.failedPages];
+      state.failedPages = result.failedPages;
       state.lastError = result.error;
       state.isManualRefresh = false;
 
@@ -254,7 +251,6 @@ export const { networkStatusChanged, syncFailed, syncFinished, syncStarted, sync
   syncSlice.actions;
 
 export const syncReducer = syncSlice.reducer;
-export type { SyncStatus };
 
 export const store = configureStore({
   reducer: {
@@ -272,9 +268,11 @@ export const store = configureStore({
     }),
 });
 
+// The shape of the whole state ({ breeds, filters, sync }), worked out by
+// TypeScript from the reducers above, so it never goes out of date.
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 
-/** Typed hooks — components never import the untyped react-redux versions. */
-export const useAppDispatch: () => AppDispatch = useDispatch;
-export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+/** Typed versions of useDispatch/useSelector, so components get autocomplete. */
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
+export const useAppSelector = useSelector.withTypes<RootState>();

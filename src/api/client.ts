@@ -5,41 +5,29 @@
  * can accidentally trust an unvalidated payload.
  */
 
-function readPositiveInt(raw: string | undefined, fallback: number): number {
-  if (raw === undefined) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
+// ---- Config -----------------------------------------------------------------
+// Values can be overridden from .env (see babel.config.js). A missing or
+// invalid value falls back to the default instead of producing NaN.
 
-function readNonNegativeInt(raw: string | undefined, fallback: number): number {
-  if (raw === undefined) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
-  return parsed;
-}
-
-function readUrl(raw: string | undefined, fallback: string): string {
-  if (raw === undefined) return fallback;
-  const trimmed = raw.trim().replace(/\/+$/u, '');
-  return trimmed.length > 0 ? trimmed : fallback;
+function envNumber(raw: string | undefined, fallback: number, min: number): number {
+  const parsed = Number(raw);
+  return raw !== undefined && Number.isInteger(parsed) && parsed >= min ? parsed : fallback;
 }
 
 export const API_CONFIG = {
-  baseUrl: readUrl(process.env['DOG_API_BASE_URL'], 'https://dogapi.dog/api/v2'),
-  timeoutMs: readPositiveInt(process.env['DOG_API_TIMEOUT_MS'], 15_000),
-  maxRetries: readNonNegativeInt(process.env['DOG_API_MAX_RETRIES'], 3),
-  /**
-   * The API defaults to 30 records/page (10 pages). Requesting 48 yields the
-   * 6 pages the brief describes, and fewer round trips for the same 283 rows.
-   */
-  pageSize: readPositiveInt(process.env['DOG_API_PAGE_SIZE'], 48),
-  /** Base delay for exponential backoff: 400ms, 800ms, 1600ms (+ jitter). */
+  baseUrl: (process.env.DOG_API_BASE_URL ?? 'https://dogapi.dog/api/v2').replace(/\/+$/, ''),
+  timeoutMs: envNumber(process.env.DOG_API_TIMEOUT_MS, 15000, 1),
+  maxRetries: envNumber(process.env.DOG_API_MAX_RETRIES, 3, 0),
+  // The API defaults to 30 per page (10 pages). 48 gives 6 pages for 283 breeds.
+  pageSize: envNumber(process.env.DOG_API_PAGE_SIZE, 48, 1),
+  // Backoff: up to 400ms, 800ms, 1600ms... (random within that), max 8s.
   retryBaseDelayMs: 400,
-  retryMaxDelayMs: 8_000,
-  /** Hard ceiling on pagination, guarding against a runaway `next` cursor. */
+  retryMaxDelayMs: 8000,
+  // Safety limit so a broken `last` page number cannot start 1000s of requests.
   maxPages: 50,
-} as const;
+};
+
+// ---- Errors -----------------------------------------------------------------
 
 export type ApiErrorKind =
   | 'network' // request never completed (offline, DNS, TLS)
@@ -49,10 +37,10 @@ export type ApiErrorKind =
   | 'aborted'; // cancelled by the caller (screen unmounted, sync superseded)
 
 export class ApiError extends Error {
-  readonly kind: ApiErrorKind;
-  readonly status: number | null;
-  readonly url: string | null;
-  override readonly cause: unknown;
+  kind: ApiErrorKind;
+  status: number | null;
+  url: string | null;
+  cause: unknown;
 
   constructor(
     kind: ApiErrorKind,
@@ -65,33 +53,17 @@ export class ApiError extends Error {
     this.status = options.status ?? null;
     this.url = options.url ?? null;
     this.cause = options.cause;
-    // Required for `instanceof` to work when targeting ES5-era output.
-    Object.setPrototypeOf(this, ApiError.prototype);
   }
 
   /**
-   * Whether retrying with backoff could plausibly succeed.
-   *
-   * 408 (timeout) and 429 (rate limited) are retryable; so is any 5xx.
-   * Other 4xx are caller errors and are not.
+   * Can trying again help? Yes for no-connection, timeouts, 5xx, 408 and 429.
+   * No for other 4xx, bad JSON, or a cancelled request.
    */
   get retryable(): boolean {
-    switch (this.kind) {
-      case 'network':
-      case 'timeout':
-        return true;
-      case 'http': {
-        const status = this.status;
-        if (status === null) return true;
-        if (status === 408 || status === 429) return true;
-        return status >= 500 && status < 600;
-      }
-      case 'parse':
-      case 'aborted':
-        return false;
-      default:
-        return false;
-    }
+    if (this.kind === 'network' || this.kind === 'timeout') return true;
+    if (this.kind !== 'http') return false;
+    const status = this.status ?? 500;
+    return status === 408 || status === 429 || status >= 500;
   }
 }
 
@@ -121,7 +93,7 @@ export function describeApiError(error: ApiError): string {
     case 'http':
       return error.status === null
         ? 'The Dog API returned an error.'
-        : `The Dog API returned HTTP ${String(error.status)}.`;
+        : `The Dog API returned HTTP ${error.status}.`;
     case 'parse':
       return 'The Dog API returned data in an unexpected format.';
     case 'aborted':
@@ -133,32 +105,17 @@ export function describeApiError(error: ApiError): string {
 
 export interface RequestOptions {
   /** Query parameters; undefined values are omitted. */
-  readonly query?: Readonly<Record<string, string | number | undefined>>;
+  query?: Record<string, string | number | undefined>;
   /** Caller-owned cancellation (screen unmount, superseded sync). */
-  readonly signal?: AbortSignal;
-  readonly timeoutMs?: number;
-  readonly maxRetries?: number;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  maxRetries?: number;
   /** Overrides the backoff base delay. Used by tests to avoid real waiting. */
-  readonly retryBaseDelayMs?: number;
+  retryBaseDelayMs?: number;
 }
 
-/** Sleep that rejects immediately if the caller aborts mid-backoff. */
-function delay(ms: number, signal: AbortSignal | undefined): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted === true) {
-      reject(new ApiError('aborted', 'Request was cancelled'));
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-    const onAbort = (): void => {
-      clearTimeout(timer);
-      reject(new ApiError('aborted', 'Request was cancelled'));
-    };
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -178,16 +135,13 @@ export function backoffDelayMs(
   return Math.round(random() * exponential);
 }
 
-function buildUrl(path: string, query: RequestOptions['query']): string {
-  const base = `${API_CONFIG.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
-  if (query === undefined) return base;
-
-  const parts: string[] = [];
-  for (const [key, value] of Object.entries(query)) {
-    if (value === undefined) continue;
-    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
-  }
-  return parts.length > 0 ? `${base}?${parts.join('&')}` : base;
+/** `/breeds` + `{ 'page[number]': 2 }` -> `https://.../breeds?page%5Bnumber%5D=2` */
+function buildUrl(path: string, query: RequestOptions['query'] = {}): string {
+  const params = Object.entries(query)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  const url = API_CONFIG.baseUrl + path;
+  return params.length > 0 ? `${url}?${params.join('&')}` : url;
 }
 
 /** One attempt: no retries, but with its own timeout and error typing. */
@@ -201,9 +155,7 @@ async function requestOnce(url: string, options: RequestOptions): Promise<unknow
     controller.abort();
   }, timeoutMs);
 
-  const onExternalAbort = (): void => {
-    controller.abort();
-  };
+  const onExternalAbort = () => controller.abort();
   options.signal?.addEventListener('abort', onExternalAbort, { once: true });
 
   try {
@@ -214,14 +166,14 @@ async function requestOnce(url: string, options: RequestOptions): Promise<unknow
     });
 
     if (!response.ok) {
-      throw new ApiError('http', `Request failed with status ${String(response.status)}`, {
+      throw new ApiError('http', `Request failed with status ${response.status}`, {
         status: response.status,
         url,
       });
     }
 
     try {
-      return (await response.json()) as unknown;
+      return await response.json();
     } catch (cause) {
       throw new ApiError('parse', 'Response body was not valid JSON', { url, cause });
     }
@@ -229,9 +181,9 @@ async function requestOnce(url: string, options: RequestOptions): Promise<unknow
     // Our own deadline fired: report as a timeout, which IS retryable,
     // rather than as a caller cancellation, which is not.
     if (timedOut) {
-      throw new ApiError('timeout', `Request timed out after ${String(timeoutMs)}ms`, { url });
+      throw new ApiError('timeout', `Request timed out after ${timeoutMs}ms`, { url });
     }
-    if (options.signal?.aborted === true) {
+    if (options.signal?.aborted) {
       throw new ApiError('aborted', 'Request was cancelled', { url });
     }
     throw toApiError(error, url);
@@ -249,20 +201,18 @@ export async function requestJson(path: string, options: RequestOptions = {}): P
   const url = buildUrl(path, options.query);
   const maxRetries = options.maxRetries ?? API_CONFIG.maxRetries;
 
-  let lastError: ApiError = new ApiError('network', 'Request was never attempted', { url });
-
-  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+  for (let attempt = 0; ; attempt++) {
     try {
       return await requestOnce(url, options);
     } catch (error) {
       const apiError = toApiError(error, url);
-      lastError = apiError;
+      const isLastAttempt = attempt >= maxRetries;
+      if (!apiError.retryable || isLastAttempt) throw apiError;
 
-      if (!apiError.retryable || attempt === maxRetries) break;
-
-      await delay(backoffDelayMs(attempt, options.retryBaseDelayMs), options.signal);
+      await sleep(backoffDelayMs(attempt, options.retryBaseDelayMs));
+      if (options.signal?.aborted) {
+        throw new ApiError('aborted', 'Request was cancelled', { url });
+      }
     }
   }
-
-  throw lastError;
 }

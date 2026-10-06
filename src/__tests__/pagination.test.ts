@@ -19,14 +19,12 @@ function breedOf(id: string, name: string): Breed {
   return parsed;
 }
 
-function pageOf(pageNumber: number, breeds: readonly Breed[]): BreedPageResult {
+function pageOf(pageNumber: number, breeds: Breed[]): BreedPageResult {
   return {
     pageNumber,
     breeds,
-    skipped: 0,
     totalRecords: 283,
     lastPage: 6,
-    hasNextPage: pageNumber < 6,
   };
 }
 
@@ -38,7 +36,7 @@ describe('mergeBreedPages', () => {
       pageOf(2, [breedOf('b', 'Beagle')]),
     ]);
 
-    expect(merged.breeds.map((breed) => breed.id)).toEqual(['a', 'b', 'c']);
+    expect(merged.map((breed) => breed.id)).toEqual(['a', 'b', 'c']);
   });
 
   it('drops duplicate ids that appear across page boundaries', () => {
@@ -48,9 +46,8 @@ describe('mergeBreedPages', () => {
       pageOf(2, [breedOf('b', 'Beagle'), breedOf('c', 'Collie')]),
     ]);
 
-    expect(merged.breeds).toHaveLength(3);
-    expect(merged.duplicatesDropped).toBe(1);
-    expect(merged.breeds.map((breed) => breed.id)).toEqual(['a', 'b', 'c']);
+    expect(merged).toHaveLength(3);
+    expect(merged.map((breed) => breed.id)).toEqual(['a', 'b', 'c']);
   });
 
   it('keeps the first occurrence when a duplicate id is seen again', () => {
@@ -58,12 +55,12 @@ describe('mergeBreedPages', () => {
     const second = { ...breedOf('dup', 'Second Name'), name: 'Second Name' };
 
     const merged = mergeBreedPages([pageOf(1, [first]), pageOf(2, [second])]);
-    expect(merged.breeds).toHaveLength(1);
-    expect(merged.breeds[0]?.name).toBe('First Name');
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.name).toBe('First Name');
   });
 
-  it('returns an empty result for no pages', () => {
-    expect(mergeBreedPages([])).toEqual({ breeds: [], duplicatesDropped: 0 });
+  it('returns an empty list for no pages', () => {
+    expect(mergeBreedPages([])).toEqual([]);
   });
 });
 
@@ -75,13 +72,9 @@ describe('resolvePageCount', () => {
   it('derives the page count from the record total when last is absent', () => {
     const page: BreedPageResult = {
       pageNumber: 1,
-      breeds: Array.from({ length: 48 }, (_, index) =>
-        breedOf(`b${String(index)}`, `Breed ${String(index)}`),
-      ),
-      skipped: 0,
+      breeds: Array.from({ length: 48 }, (_, index) => breedOf(`b${index}`, `Breed ${index}`)),
       totalRecords: 283,
       lastPage: null,
-      hasNextPage: true,
     };
     // ceil(283 / 48) = 6
     expect(resolvePageCount(page)).toBe(6);
@@ -91,10 +84,8 @@ describe('resolvePageCount', () => {
     const page: BreedPageResult = {
       pageNumber: 1,
       breeds: [],
-      skipped: 0,
       totalRecords: null,
       lastPage: null,
-      hasNextPage: false,
     };
     expect(resolvePageCount(page)).toBe(1);
   });
@@ -117,7 +108,7 @@ describe('fetchAllBreeds', () => {
   function mockPagedApi(options: {
     pageCount: number;
     perPage: number;
-    failPages?: readonly number[];
+    failPages?: number[];
     duplicateOnPage?: number;
   }): jest.Mock {
     const { pageCount, perPage, failPages = [], duplicateOnPage } = options;
@@ -133,12 +124,7 @@ describe('fetchAllBreeds', () => {
 
       const data = Array.from({ length: perPage }, (_, index) => {
         const globalIndex = (pageNumber - 1) * perPage + index;
-        return makeBreedWithWeight(
-          `breed-${String(globalIndex)}`,
-          `Breed ${String(globalIndex)}`,
-          8,
-          12,
-        );
+        return makeBreedWithWeight(`breed-${globalIndex}`, `Breed ${globalIndex}`, 8, 12);
       });
 
       // Optionally repeat page 1's first record, simulating a shifted record.
@@ -169,7 +155,6 @@ describe('fetchAllBreeds', () => {
     const result = await fetchAllBreeds();
 
     expect(result.pagesRequested).toBe(6);
-    expect(result.pagesSucceeded).toBe(6);
     expect(result.breeds).toHaveLength(288);
     expect(result.partial).toBe(false);
     expect(result.failures).toEqual([]);
@@ -195,7 +180,6 @@ describe('fetchAllBreeds', () => {
     // Losing 2 pages costs 96 breeds, not all 288.
     expect(result.breeds).toHaveLength(192);
     expect(result.partial).toBe(true);
-    expect(result.pagesSucceeded).toBe(4);
     expect(result.failures.map((failure) => failure.pageNumber).sort()).toEqual([3, 5]);
   });
 
@@ -203,19 +187,12 @@ describe('fetchAllBreeds', () => {
     mockPagedApi({ pageCount: 3, perPage: 10, duplicateOnPage: 2 });
 
     const result = await fetchAllBreeds();
-    expect(result.duplicatesDropped).toBe(1);
     expect(new Set(result.breeds.map((breed) => breed.id)).size).toBe(result.breeds.length);
   });
 
   it('propagates a failure on page 1, which leaves nothing to merge', async () => {
     mockPagedApi({ pageCount: 6, perPage: 48, failPages: [1] });
     await expect(fetchAllBreeds({ retryBaseDelayMs: 1 })).rejects.toThrow();
-  });
-
-  it('reports the API record total so sync can detect a short dataset', async () => {
-    mockPagedApi({ pageCount: 6, perPage: 48 });
-    const result = await fetchAllBreeds();
-    expect(result.expectedTotal).toBe(288);
   });
 
   it('handles a single-page dataset with no pagination metadata', async () => {

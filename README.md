@@ -19,7 +19,7 @@ npm start                # Metro, in its own terminal
 npm run ios              # or: npm run android
 ```
 
-`npm test` runs the suite (196 tests). `npm run typecheck` runs `tsc --noEmit`, and
+`npm test` runs the suite (195 tests). `npm run typecheck` runs `tsc --noEmit`, and
 `npm run lint` / `npm run format:check` run ESLint and Prettier, as CI does.
 
 **Requirements:** Node 22.11+, and Xcode + CocoaPods (iOS) or Android Studio +
@@ -197,7 +197,7 @@ Measured figures and the commands that produced them are in
 | Android JS bundle (release) | **1.43 MB** minified JS / 2.09 MB Hermes bytecode, 909 modules (minified was 2.38 MB before removing unused dependencies) |
 | Full sync, 6 pages / 283 breeds | **~4.4s** (concurrent), 0 duplicates, 0 parse failures |
 | Partial failure (2 of 6 pages down) | **187 breeds recovered**, cache preserved |
-| Test suite | **196 tests, 8 suites** |
+| Test suite | **195 tests, 8 suites** |
 
 Verified running on **both platforms**: iOS 26 simulator (iPhone 17 Pro) and
 Android emulator (API 36), from the same source with no platform branching.
@@ -249,7 +249,7 @@ as tappable links:
 ## Testing
 
 ```bash
-npm test                 # 196 tests, 8 suites
+npm test                 # 195 tests, 8 suites
 npm run test:coverage
 npm run typecheck        # tsc --noEmit, strict
 npm run lint             # ESLint (@react-native config), zero warnings allowed
@@ -306,8 +306,10 @@ docs/                   APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · 
 
 ## Code quality
 
-- TypeScript **strict**, plus `noUncheckedIndexedAccess`, `noUnusedLocals`,
-  `noUnusedParameters`, `noImplicitOverride`.
+- TypeScript **strict**, plus `noUnusedLocals` and `noUnusedParameters`.
+  The code deliberately sticks to plain, readable TypeScript (simple unions,
+  no `readonly` noise, no type-level tricks) so any React Native developer can
+  follow it.
 - **No `any`.** Untrusted JSON enters as `unknown` and is narrowed by type
   guards at the top of `src/api/parsers.ts`.
 - Business logic and database access stay out of UI components.

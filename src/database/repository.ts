@@ -12,7 +12,6 @@ import type {
   BreedSource,
   Coat,
   CoatCategory,
-  ScoredTraitKey,
   SizeBand,
   TraitScores,
   Traits,
@@ -20,109 +19,104 @@ import type {
   SyncState,
 } from '@/types';
 import { COAT_CATEGORIES, SCORED_TRAIT_KEYS, SIZE_BANDS, INITIAL_SYNC_STATE } from '@/types';
-import { isRecord, isString, optionalNumber, optionalString } from '@/api/parsers';
+import { isRecord, optionalNumber, optionalString } from '@/api/parsers';
 import { getDatabase } from '@/database/database';
 
 /** Shape of a `breeds` row as returned by SQLite. */
 export interface BreedRow {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string | null;
-  readonly group_id: string | null;
-  readonly life_min: number | null;
-  readonly life_max: number | null;
-  readonly male_weight_min: number | null;
-  readonly male_weight_max: number | null;
-  readonly female_weight_min: number | null;
-  readonly female_weight_max: number | null;
-  readonly male_height_min: number | null;
-  readonly male_height_max: number | null;
-  readonly female_height_min: number | null;
-  readonly female_height_max: number | null;
-  readonly hypoallergenic: number | null;
-  readonly origin_era: string | null;
-  readonly origin_region: string | null;
-  readonly origin_country: string | null;
-  readonly coat_type: string | null;
-  readonly coat_length: string | null;
-  readonly coat_colors_json: string;
-  readonly traits_json: string;
-  readonly exercise_minutes: number | null;
-  readonly temperament_json: string;
-  readonly other_names_json: string;
-  readonly recognized_by_json: string;
-  readonly sources_json: string;
-  readonly size_band: string | null;
-  readonly coat_category: string | null;
-  readonly search_haystack: string;
-  readonly thumbnail_url: string | null;
+  id: string;
+  name: string;
+  description: string | null;
+  group_id: string | null;
+  life_min: number | null;
+  life_max: number | null;
+  male_weight_min: number | null;
+  male_weight_max: number | null;
+  female_weight_min: number | null;
+  female_weight_max: number | null;
+  male_height_min: number | null;
+  male_height_max: number | null;
+  female_height_min: number | null;
+  female_height_max: number | null;
+  hypoallergenic: number | null;
+  origin_era: string | null;
+  origin_region: string | null;
+  origin_country: string | null;
+  coat_type: string | null;
+  coat_length: string | null;
+  coat_colors_json: string;
+  traits_json: string;
+  exercise_minutes: number | null;
+  temperament_json: string;
+  other_names_json: string;
+  recognized_by_json: string;
+  sources_json: string;
+  size_band: string | null;
+  coat_category: string | null;
+  search_haystack: string;
+  thumbnail_url: string | null;
 }
 
 export interface BreedImageRow {
-  readonly id: string;
-  readonly breed_id: string;
-  readonly position: number;
-  readonly thumb_url: string | null;
-  readonly medium_url: string | null;
-  readonly large_url: string | null;
-  readonly author: string | null;
-  readonly license: string | null;
-  readonly license_url: string | null;
-  readonly source: string | null;
-  readonly source_url: string | null;
+  id: string;
+  breed_id: string;
+  position: number;
+  thumb_url: string | null;
+  medium_url: string | null;
+  large_url: string | null;
+  author: string | null;
+  license: string | null;
+  license_url: string | null;
+  source: string | null;
+  source_url: string | null;
 }
 
-/** Parses a JSON column, returning `fallback` if it is absent or corrupt. */
-function parseJsonColumn(raw: string, fallback: unknown): unknown {
-  if (raw.length === 0) return fallback;
+/** Reads a JSON text column. A corrupt value becomes `fallback` instead of crashing. */
+function readJson(raw: string, fallback: unknown): unknown {
   try {
-    return JSON.parse(raw) as unknown;
+    return JSON.parse(raw);
   } catch {
     return fallback;
   }
 }
 
-function jsonStringArray(raw: string): readonly string[] {
-  const parsed = parseJsonColumn(raw, []);
+function jsonStringArray(raw: string): string[] {
+  const parsed = readJson(raw, []);
   if (!Array.isArray(parsed)) return [];
-  return parsed.filter(isString);
+  return parsed.filter((entry): entry is string => typeof entry === 'string');
 }
 
-function jsonSources(raw: string): readonly BreedSource[] {
-  const parsed = parseJsonColumn(raw, []);
+function jsonSources(raw: string): BreedSource[] {
+  const parsed = readJson(raw, []);
   if (!Array.isArray(parsed)) return [];
-  const out: BreedSource[] = [];
-  for (const entry of parsed) {
-    if (!isRecord(entry)) continue;
-    out.push({ url: optionalString(entry, 'url'), title: optionalString(entry, 'title') });
-  }
-  return out;
+  return parsed.filter(isRecord).map((entry) => ({
+    url: optionalString(entry, 'url'),
+    title: optionalString(entry, 'title'),
+  }));
 }
 
 function jsonTraitScores(raw: string): TraitScores {
-  const parsed = parseJsonColumn(raw, {});
+  const parsed = readJson(raw, {});
   const source = isRecord(parsed) ? parsed : {};
-  const scores = {} as Record<ScoredTraitKey, number | null>;
+  const scores = {} as TraitScores;
   for (const key of SCORED_TRAIT_KEYS) {
     scores[key] = optionalNumber(source, key);
   }
-  return scores as TraitScores;
+  return scores;
 }
 
+/** Only accept values we know; anything else in the column becomes null. */
 function toSizeBand(value: string | null): SizeBand | null {
-  if (value === null) return null;
-  return SIZE_BANDS.find((band) => band === value) ?? null;
+  return SIZE_BANDS.includes(value as SizeBand) ? (value as SizeBand) : null;
 }
 
 function toCoatCategory(value: string | null): CoatCategory | null {
-  if (value === null) return null;
-  return COAT_CATEGORIES.find((category) => category === value) ?? null;
+  return COAT_CATEGORIES.includes(value as CoatCategory) ? (value as CoatCategory) : null;
 }
 
-/** SQLite has no boolean type: 1/0/NULL maps to true/false/unknown. */
+/** SQLite has no boolean type: 1 = true, 0 = false, NULL = unknown. */
 function toNullableBoolean(value: number | null): boolean | null {
-  if (value === null) return null;
-  return value !== 0;
+  return value === null ? null : value === 1;
 }
 
 export function mapImageRow(row: BreedImageRow): BreedImage {
@@ -148,7 +142,7 @@ export function mapImageRow(row: BreedImageRow): BreedImage {
  * Images are passed in rather than fetched here so callers can batch the
  * image query across many breeds instead of issuing one per row.
  */
-export function mapBreedRow(row: BreedRow, images: readonly BreedImage[]): Breed {
+export function mapBreedRow(row: BreedRow, images: BreedImage[]): Breed {
   const coat: Coat = {
     type: row.coat_type,
     length: row.coat_length,
@@ -191,7 +185,7 @@ export function mapBreedRow(row: BreedRow, images: readonly BreedImage[]): Breed
 }
 
 /** Flattens a `Breed` into positional bind values for the upsert statement. */
-export function breedToBindValues(breed: Breed, syncedAt: number): readonly SQLiteBindValue[] {
+export function breedToBindValues(breed: Breed, syncedAt: number): SQLiteBindValue[] {
   return [
     breed.id,
     breed.name,
@@ -337,7 +331,7 @@ const UPSERT_IMAGE_SQL = `
  * dataset must never wipe rows it simply did not mention. Prepared statements
  * are reused across all rows, which is what keeps a 283-breed write fast.
  */
-export async function upsertBreeds(breeds: readonly Breed[], syncedAt: number): Promise<void> {
+export async function upsertBreeds(breeds: Breed[], syncedAt: number): Promise<void> {
   if (breeds.length === 0) return;
   const db = await getDatabase();
 
@@ -379,7 +373,7 @@ export async function upsertBreeds(breeds: readonly Breed[], syncedAt: number): 
  * Filtering happens in a memoised selector at this size. The facet columns are
  * indexed, so moving it into a WHERE clause is a query change, not a schema one.
  */
-export async function getAllBreeds(): Promise<readonly Breed[]> {
+export async function getAllBreeds(): Promise<Breed[]> {
   const db = await getDatabase();
   const rows = await db.getAll<BreedRow>(
     `SELECT ${BREED_COLUMNS} FROM breeds ORDER BY name COLLATE NOCASE ASC`,
@@ -410,7 +404,7 @@ const UPSERT_GROUP_SQL = `
     updated_at = excluded.updated_at
 `;
 
-export async function upsertGroups(groups: readonly BreedGroup[], syncedAt: number): Promise<void> {
+export async function upsertGroups(groups: BreedGroup[], syncedAt: number): Promise<void> {
   if (groups.length === 0) return;
   const db = await getDatabase();
 
@@ -422,7 +416,7 @@ export async function upsertGroups(groups: readonly BreedGroup[], syncedAt: numb
   });
 }
 
-export async function getAllGroups(): Promise<readonly BreedGroup[]> {
+export async function getAllGroups(): Promise<BreedGroup[]> {
   const db = await getDatabase();
   const rows = await db.getAll<{ id: string; name: string }>(
     'SELECT id, name FROM groups ORDER BY name COLLATE NOCASE ASC',
@@ -440,30 +434,7 @@ const UPSERT_SQL = `
     updated_at = excluded.updated_at
 `;
 
-/** Narrows a persisted status string back into the union. */
-function toStatus(value: string | null): SyncState['status'] {
-  switch (value) {
-    case 'syncing':
-      // A run was in flight when the app died; it certainly is not now.
-      return 'idle';
-    case 'success':
-    case 'partial':
-    case 'error':
-    case 'idle':
-      return value;
-    default:
-      return 'idle';
-  }
-}
-
-function toPageNumbers(value: unknown): readonly number[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (entry): entry is number => typeof entry === 'number' && Number.isFinite(entry),
-  );
-}
-
-/** Reads persisted sync state, falling back to the initial state. */
+/** Reads persisted sync state. Missing or corrupt data falls back to the initial state. */
 export async function getSyncState(): Promise<SyncState> {
   const db = await getDatabase();
   const row = await db.getFirst<{ value: string }>(
@@ -472,21 +443,24 @@ export async function getSyncState(): Promise<SyncState> {
   );
   if (row === null) return INITIAL_SYNC_STATE;
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(row.value) as unknown;
-  } catch {
-    // Corrupt metadata must not block the app: fall back and move on.
-    return INITIAL_SYNC_STATE;
-  }
-  if (!isRecord(parsed)) return INITIAL_SYNC_STATE;
+  const saved = readJson(row.value, null);
+  if (!isRecord(saved)) return INITIAL_SYNC_STATE;
 
-  const statusValue = parsed['status'];
+  // 'syncing' means the app was killed mid-sync; nothing is running now.
+  const knownStatuses = ['idle', 'success', 'partial', 'error'];
+  const status = knownStatuses.includes(saved.status as string)
+    ? (saved.status as SyncState['status'])
+    : 'idle';
+
+  const failedPages = Array.isArray(saved.failedPages)
+    ? saved.failedPages.filter((page): page is number => typeof page === 'number')
+    : [];
+
   return {
-    status: toStatus(isString(statusValue) ? statusValue : null),
-    lastSyncedAt: optionalNumber(parsed, 'lastSyncedAt'),
-    failedPages: toPageNumbers(parsed['failedPages']),
-    lastError: optionalString(parsed, 'lastError'),
+    status,
+    lastSyncedAt: optionalNumber(saved, 'lastSyncedAt'),
+    failedPages,
+    lastError: optionalString(saved, 'lastError'),
   };
 }
 

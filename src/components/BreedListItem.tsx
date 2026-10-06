@@ -12,22 +12,23 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 
 import { useTheme, BREED_ROW_HEIGHT } from '@/theme';
+import type { Theme } from '@/theme';
 import type { Breed } from '@/types';
 import { formatRange, initialsFor } from '@/format';
 
 export interface BreedListItemProps {
-  readonly breed: Breed;
-  readonly onPress: (breedId: string, breedName: string) => void;
+  breed: Breed;
+  onPress: (breedId: string, breedName: string) => void;
 }
 
-const SIZE_LABELS: Readonly<Record<string, string>> = {
+const SIZE_LABELS: Record<string, string> = {
   small: 'Small',
   medium: 'Medium',
   large: 'Large',
   giant: 'Giant',
 };
 
-function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.ReactElement {
+function BreedListItemComponent({ breed, onPress }: BreedListItemProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -121,7 +122,7 @@ function arePropsEqual(previous: BreedListItemProps, next: BreedListItemProps): 
 
 export const BreedListItem = memo(BreedListItemComponent, arePropsEqual);
 
-function createStyles(theme: ReturnType<typeof useTheme>) {
+function createStyles(theme: Theme) {
   return StyleSheet.create({
     row: {
       height: BREED_ROW_HEIGHT,

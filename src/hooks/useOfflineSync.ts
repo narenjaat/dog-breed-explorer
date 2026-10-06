@@ -1,22 +1,18 @@
 /**
- * Offline-first bootstrap and background sync.
+ * Offline-first startup and background sync.
  *
- * Order of operations on launch:
- *   1. Read SQLite and render whatever is cached — immediately, before any
- *      network call. This is what makes a cold start usable offline.
- *   2. Probe connectivity.
- *   3. If online and the cache is empty or stale, sync in the background.
- *   4. On regaining connectivity, sync again.
+ *   1. On launch, show whatever SQLite has, before any network call. This is
+ *      why the app works offline.
+ *   2. If online and the cache is empty or older than 6 hours, sync.
+ *   3. Sync again when the internet comes back or the app is reopened.
  *
- * The cache is never cleared on failure; a failed sync only updates the
- * banner.
+ * A failed sync never clears the cache; it only updates the banner.
  */
 
 import NetInfo from '@react-native-community/netinfo';
 import type { NetInfoState } from '@react-native-community/netinfo';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
-import type { AppStateStatus } from 'react-native';
 import { getAllGroups, getAllBreeds, getSyncState } from '@/database/repository';
 import FastImage from '@d11/react-native-fast-image';
 import { synchronize } from '@/syncService';
@@ -37,211 +33,125 @@ import {
 import { selectIsOnline } from '@/store/selectors';
 import type { Breed } from '@/types';
 
-export interface NetworkSnapshot {
-  /** The device has a network interface up. */
-  readonly isConnected: boolean;
-  /**
-   * The OS believes that interface can actually reach the internet. On some
-   * Android versions this is undefined, in which case we fall back to
-   * `isConnected` rather than declaring the app offline.
-   */
-  readonly isInternetReachable: boolean;
-}
-
-export type NetworkListener = (snapshot: NetworkSnapshot) => void;
-
-function toSnapshot(state: NetInfoState): NetworkSnapshot {
-  const isConnected = state.isConnected ?? false;
-  return {
-    isConnected,
-    isInternetReachable: state.isInternetReachable ?? isConnected,
-  };
-}
-
-/** Reads current connectivity. Assumes online if the check itself fails, so a
- *  probe error cannot strand the user in a permanent "offline" state. */
-export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
-  try {
-    const state = await NetInfo.fetch();
-    return toSnapshot(state);
-  } catch {
-    return { isConnected: true, isInternetReachable: true };
-  }
-}
-
-/**
- * Subscribes to connectivity changes. Returns an unsubscribe function.
- */
-export function subscribeToNetwork(listener: NetworkListener): () => void {
-  return NetInfo.addEventListener((state) => {
-    listener(toSnapshot(state));
-  });
-}
-
-/** True when the snapshot indicates the app can reach the API. */
-export function isOnline(snapshot: NetworkSnapshot): boolean {
-  return snapshot.isConnected && snapshot.isInternetReachable;
-}
-
-/** Data older than this triggers an automatic refresh on launch. */
+/** Data older than this is refreshed automatically. */
 export const STALE_AFTER_MS = 6 * 60 * 60 * 1000; // 6 hours
-
-/**
- * Warms the disk cache for the first screenful of list thumbnails, so the top
- * of the list has art on the next cold start. Capped so it does not compete
- * with the images actually being scrolled to.
- */
-function prefetchThumbnails(breeds: readonly Breed[]): void {
-  const sources = breeds
-    .slice(0, 24)
-    .flatMap((breed) => (breed.thumbnailUrl === null ? [] : [breed.thumbnailUrl]))
-    .map((uri) => ({ uri, cache: FastImage.cacheControl.immutable }));
-  if (sources.length > 0) FastImage.preload(sources);
-}
 
 function isStale(lastSyncedAt: number | null): boolean {
   return lastSyncedAt === null || Date.now() - lastSyncedAt > STALE_AFTER_MS;
 }
 
-export interface UseOfflineSyncResult {
-  /** Starts a manual sync: pull-to-refresh and every Retry button. */
-  readonly refresh: () => void;
+/**
+ * Online = connected AND the internet is reachable. Some Android versions
+ * report reachability as null; then we trust `isConnected`.
+ */
+function isOnline(state: NetInfoState): boolean {
+  const connected = state.isConnected ?? false;
+  return connected && (state.isInternetReachable ?? connected);
 }
 
-export function useOfflineSync(): UseOfflineSyncResult {
+/** Downloads the first 24 list thumbnails so the next cold start has images. */
+function prefetchThumbnails(breeds: Breed[]): void {
+  const sources = breeds
+    .slice(0, 24)
+    .filter((breed) => breed.thumbnailUrl !== null)
+    .map((breed) => ({ uri: breed.thumbnailUrl!, cache: FastImage.cacheControl.immutable }));
+  FastImage.preload(sources);
+}
+
+export function useOfflineSync() {
   const dispatch = useAppDispatch();
   const online = useAppSelector(selectIsOnline);
 
-  // Guards against a sync firing twice (e.g. foreground + reconnect landing
-  // together). The service also de-duplicates, but this avoids the dispatch churn.
-  const syncingRef = useRef(false);
-  const mountedRef = useRef(true);
+  // Refs hold values the listeners below need without re-subscribing.
+  const isSyncingRef = useRef(false);
   const onlineRef = useRef(online);
   onlineRef.current = online;
 
   const runSync = useCallback(
-    async (manual: boolean): Promise<void> => {
-      if (syncingRef.current) return;
-      syncingRef.current = true;
+    async (manual: boolean) => {
+      // Two triggers can land together (reconnect + app foreground): run once.
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
       dispatch(syncStarted({ manual }));
 
       try {
         const result = await synchronize();
-        if (!mountedRef.current) return;
-
         dispatch(syncFinished(result));
 
-        // Re-read from SQLite rather than trusting the in-memory result: the
-        // database is the source of truth, and a partial sync merged with
-        // previously-cached rows produces a different set than the API returned.
+        // Read back from SQLite: after a partial sync it holds old + new
+        // rows, which is more than this run downloaded.
         if (result.status !== 'error') {
           const [breeds, groups] = await Promise.all([getAllBreeds(), getAllGroups()]);
-          if (!mountedRef.current) return;
-
           dispatch(groupsUpserted(groups));
           dispatch(breedsUpserted(breeds));
           prefetchThumbnails(breeds);
         }
       } catch (error) {
-        if (!mountedRef.current) return;
-        const message = error instanceof Error ? error.message : 'Synchronisation failed.';
-        dispatch(syncFailed(message));
+        dispatch(syncFailed(error instanceof Error ? error.message : 'Sync failed.'));
       } finally {
-        syncingRef.current = false;
+        isSyncingRef.current = false;
       }
     },
     [dispatch],
   );
 
-  // --- Step 1 & 2: hydrate from cache, then decide whether to sync ---
+  // 1. On launch: show the cache first, then sync if needed.
   useEffect(() => {
-    mountedRef.current = true;
-
-    const bootstrap = async (): Promise<void> => {
+    async function bootstrap() {
       dispatch(hydrationStarted());
 
-      let cachedBreedCount = 0;
+      let cachedCount = 0;
       let lastSyncedAt: number | null = null;
-
       try {
         const [breeds, groups, syncState] = await Promise.all([
           getAllBreeds(),
           getAllGroups(),
           getSyncState(),
         ]);
-        if (!mountedRef.current) return;
-
-        cachedBreedCount = breeds.length;
+        cachedCount = breeds.length;
         lastSyncedAt = syncState.lastSyncedAt;
-
         dispatch(syncStateRestored(syncState));
         dispatch(hydratedFromCache({ breeds, groups }));
       } catch {
-        if (!mountedRef.current) return;
-        // A broken cache must not block the app; the network path can still
-        // populate it.
+        // A broken cache must not block the app; a sync can still fill it.
         dispatch(hydrationFailed());
       }
 
-      const snapshot = await getNetworkSnapshot();
-      if (!mountedRef.current) return;
-
-      const connected = isOnline(snapshot);
+      const connected = isOnline(await NetInfo.fetch());
       dispatch(networkStatusChanged(connected));
 
-      if (!connected) return;
-
-      // Sync when there is nothing cached, or when what is cached is old.
-      if (cachedBreedCount === 0 || isStale(lastSyncedAt)) {
-        void runSync(false);
+      if (connected && (cachedCount === 0 || isStale(lastSyncedAt))) {
+        runSync(false);
       }
-    };
-
-    void bootstrap();
-
-    return () => {
-      mountedRef.current = false;
-    };
+    }
+    bootstrap();
   }, [dispatch, runSync]);
 
-  // --- Step 4: sync when connectivity returns ---
+  // 2. When the internet comes back, sync again.
   useEffect(() => {
-    const unsubscribe = subscribeToNetwork((snapshot) => {
-      const connected = isOnline(snapshot);
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const connected = isOnline(state);
       const wasOnline = onlineRef.current;
       dispatch(networkStatusChanged(connected));
 
-      // Only on the offline -> online edge, so a flapping connection does not
-      // start a sync per event.
-      if (connected && !wasOnline) {
-        void runSync(false);
-      }
+      // Only on the offline -> online change, not on every network event.
+      if (connected && !wasOnline) runSync(false);
     });
-
     return unsubscribe;
   }, [dispatch, runSync]);
 
-  // Refresh stale data when the app returns to the foreground.
+  // 3. When the app comes back to the foreground with old data, sync.
   useEffect(() => {
-    const handleAppStateChange = (nextState: AppStateStatus): void => {
+    const subscription = AppState.addEventListener('change', async (nextState) => {
       if (nextState !== 'active' || !onlineRef.current) return;
-      void (async () => {
-        const syncState = await getSyncState();
-        if (isStale(syncState.lastSyncedAt)) {
-          void runSync(false);
-        }
-      })();
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => {
-      subscription.remove();
-    };
+      const syncState = await getSyncState();
+      if (isStale(syncState.lastSyncedAt)) runSync(false);
+    });
+    return () => subscription.remove();
   }, [runSync]);
 
-  const refresh = useCallback(() => {
-    void runSync(true);
-  }, [runSync]);
+  /** Manual sync: pull-to-refresh and every Retry button. */
+  const refresh = useCallback(() => runSync(true), [runSync]);
 
   return { refresh };
 }

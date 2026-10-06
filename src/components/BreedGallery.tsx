@@ -30,17 +30,17 @@ import { EmptyState } from '@/components/States';
 import { toSafeExternalUrl } from '@/format';
 
 export interface BreedGalleryProps {
-  readonly images: readonly BreedImage[];
-  readonly breedName: string;
+  images: BreedImage[];
+  breedName: string;
 }
 
 interface SlideProps {
-  readonly image: BreedImage;
-  readonly width: number;
-  readonly isActive: boolean;
-  readonly breedName: string;
-  readonly index: number;
-  readonly total: number;
+  image: BreedImage;
+  width: number;
+  isActive: boolean;
+  breedName: string;
+  index: number;
+  total: number;
 }
 
 /** Opens a vetted web URL. A device with no browser rejects; that is not a crash. */
@@ -48,7 +48,7 @@ function openExternal(url: string): void {
   Linking.openURL(url).catch(() => undefined);
 }
 
-function AttributionRow({ image }: { readonly image: BreedImage }): React.ReactElement | null {
+function AttributionRow({ image }: { image: BreedImage }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { author, license, source } = image.attribution;
@@ -109,14 +109,7 @@ function AttributionRow({ image }: { readonly image: BreedImage }): React.ReactE
   );
 }
 
-function SlideComponent({
-  image,
-  width,
-  isActive,
-  breedName,
-  index,
-  total,
-}: SlideProps): React.ReactElement {
+function SlideComponent({ image, width, isActive, breedName, index, total }: SlideProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [failed, setFailed] = useState(false);
@@ -141,7 +134,7 @@ function SlideComponent({
             resizeMode={FastImage.resizeMode.cover}
             transition={FastImage.transition.fade}
             onError={handleError}
-            accessibilityLabel={`${breedName}, photo ${String(index + 1)} of ${String(total)}`}
+            accessibilityLabel={`${breedName}, photo ${index + 1} of ${total}`}
           />
         )}
       </View>
@@ -152,7 +145,7 @@ function SlideComponent({
 
 const Slide = memo(SlideComponent);
 
-function BreedGalleryComponent({ images, breedName }: BreedGalleryProps): React.ReactElement {
+function BreedGalleryComponent({ images, breedName }: BreedGalleryProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { width } = useWindowDimensions();
@@ -170,7 +163,7 @@ function BreedGalleryComponent({ images, breedName }: BreedGalleryProps): React.
   );
 
   const renderItem = useCallback(
-    ({ item, index }: ListRenderItemInfo<BreedImage>): React.ReactElement => (
+    ({ item, index }: ListRenderItemInfo<BreedImage>) => (
       <Slide
         image={item}
         width={slideWidth}

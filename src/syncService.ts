@@ -12,7 +12,7 @@ import { upsertBreeds, upsertGroups, getSyncState, saveSyncState } from '@/datab
 import type { SyncResult } from '@/types';
 
 export interface SyncOptions {
-  readonly signal?: AbortSignal;
+  signal?: AbortSignal;
 }
 
 /**
@@ -53,7 +53,7 @@ async function performSync(options: SyncOptions): Promise<SyncResult> {
   ]);
 
   /** Records a failed run. Writes no breeds, so the existing cache stands. */
-  const fail = async (message: string, failedPages: readonly number[]): Promise<SyncResult> => {
+  const fail = async (message: string, failedPages: number[]): Promise<SyncResult> => {
     await saveSyncState({
       status: 'error',
       lastSyncedAt: previous.lastSyncedAt,
@@ -73,7 +73,7 @@ async function performSync(options: SyncOptions): Promise<SyncResult> {
   const failedPages = breedsResult.failures.map((failure) => failure.pageNumber);
 
   if (groupsOutcome.status === 'fulfilled') {
-    await upsertGroups(groupsOutcome.value.groups, syncedAt);
+    await upsertGroups(groupsOutcome.value, syncedAt);
   }
 
   // Zero breeds from a "successful" fetch means the payload was empty or
@@ -94,10 +94,7 @@ async function performSync(options: SyncOptions): Promise<SyncResult> {
 }
 
 /** Human-readable summary of what a partial run failed to refresh. */
-export function buildPartialMessage(
-  failedPages: readonly number[],
-  groupsFailed: boolean,
-): string | null {
+export function buildPartialMessage(failedPages: number[], groupsFailed: boolean): string | null {
   if (failedPages.length === 0 && !groupsFailed) return null;
 
   const parts: string[] = [];

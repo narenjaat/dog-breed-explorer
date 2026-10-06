@@ -5,14 +5,33 @@
  * (size band, coat category, search haystack) are computed once at parse time.
  */
 
-export const SIZE_BANDS = ['small', 'medium', 'large', 'giant'] as const;
-export type SizeBand = (typeof SIZE_BANDS)[number];
+export type SizeBand = 'small' | 'medium' | 'large' | 'giant';
+export const SIZE_BANDS: SizeBand[] = ['small', 'medium', 'large', 'giant'];
 
-export const COAT_CATEGORIES = ['short', 'medium', 'long', 'wire', 'curly', 'hairless'] as const;
-export type CoatCategory = (typeof COAT_CATEGORIES)[number];
+export type CoatCategory = 'short' | 'medium' | 'long' | 'wire' | 'curly' | 'hairless';
+export const COAT_CATEGORIES: CoatCategory[] = [
+  'short',
+  'medium',
+  'long',
+  'wire',
+  'curly',
+  'hairless',
+];
 
-/** The ten 1-5 trait scores. `exercise_minutes` is excluded: it is a duration. */
-export const SCORED_TRAIT_KEYS = [
+/** The ten 1-5 trait scores. (`exercise_minutes` is minutes, not a score.) */
+export type ScoredTraitKey =
+  | 'energy'
+  | 'barking'
+  | 'drooling'
+  | 'grooming'
+  | 'shedding'
+  | 'trainability'
+  | 'good_with_dogs'
+  | 'apartment_friendly'
+  | 'good_with_children'
+  | 'good_with_strangers';
+
+export const SCORED_TRAIT_KEYS: ScoredTraitKey[] = [
   'energy',
   'barking',
   'drooling',
@@ -23,105 +42,104 @@ export const SCORED_TRAIT_KEYS = [
   'apartment_friendly',
   'good_with_children',
   'good_with_strangers',
-] as const;
-export type ScoredTraitKey = (typeof SCORED_TRAIT_KEYS)[number];
+];
 
-/** Traits offered as a "minimum score" filter on the list screen. */
-export const FILTERABLE_TRAIT_KEYS = [
+/** Traits the list can filter by ("good with children: 4+"). */
+export type FilterableTraitKey = 'good_with_children' | 'good_with_dogs' | 'good_with_strangers';
+export const FILTERABLE_TRAIT_KEYS: FilterableTraitKey[] = [
   'good_with_children',
   'good_with_dogs',
   'good_with_strangers',
-] as const;
-export type FilterableTraitKey = (typeof FILTERABLE_TRAIT_KEYS)[number];
+];
 
 export const TRAIT_SCORE_MIN = 1;
 export const TRAIT_SCORE_MAX = 5;
 
 /** A numeric range where either bound may be unknown. */
 export interface Range {
-  readonly min: number | null;
-  readonly max: number | null;
+  min: number | null;
+  max: number | null;
 }
 
 export interface Origin {
-  readonly era: string | null;
-  readonly region: string | null;
-  readonly country: string | null;
+  era: string | null;
+  region: string | null;
+  country: string | null;
 }
 
 export interface Coat {
-  readonly type: string | null;
-  readonly length: string | null;
-  readonly colors: readonly string[];
+  type: string | null;
+  length: string | null;
+  colors: string[];
 }
 
 /** Scores keyed by trait; a missing trait is `null`, never 0. */
-export type TraitScores = Readonly<Record<ScoredTraitKey, number | null>>;
+export type TraitScores = Record<ScoredTraitKey, number | null>;
 
 export interface Traits {
-  readonly scores: TraitScores;
+  scores: TraitScores;
   /** Minutes of daily exercise (observed 20..120), or null. */
-  readonly exerciseMinutes: number | null;
-  readonly temperament: readonly string[];
+  exerciseMinutes: number | null;
+  temperament: string[];
 }
 
 export interface ImageAttribution {
-  readonly author: string | null;
-  readonly license: string | null;
-  readonly licenseUrl: string | null;
-  readonly source: string | null;
-  readonly sourceUrl: string | null;
+  author: string | null;
+  license: string | null;
+  licenseUrl: string | null;
+  source: string | null;
+  sourceUrl: string | null;
 }
 
 export interface BreedImage {
-  readonly id: string;
-  readonly breedId: string;
+  id: string;
+  breedId: string;
   /** Position in the API's ordering; index 0 is used as the list thumbnail. */
-  readonly position: number;
-  readonly thumbUrl: string | null;
-  readonly mediumUrl: string | null;
-  readonly largeUrl: string | null;
-  readonly attribution: ImageAttribution;
+  position: number;
+  thumbUrl: string | null;
+  mediumUrl: string | null;
+  largeUrl: string | null;
+  attribution: ImageAttribution;
 }
 
 export interface BreedSource {
-  readonly url: string | null;
-  readonly title: string | null;
+  url: string | null;
+  title: string | null;
 }
 
 export interface Breed {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string | null;
-  readonly groupId: string | null;
-  readonly life: Range;
-  readonly maleWeight: Range;
-  readonly femaleWeight: Range;
-  readonly maleHeight: Range;
-  readonly femaleHeight: Range;
-  readonly hypoallergenic: boolean | null;
-  readonly origin: Origin;
-  readonly coat: Coat;
-  readonly traits: Traits;
-  readonly otherNames: readonly string[];
-  readonly recognizedBy: readonly string[];
-  readonly sources: readonly BreedSource[];
-  readonly images: readonly BreedImage[];
+  id: string;
+  name: string;
+  description: string | null;
+  groupId: string | null;
+  life: Range;
+  maleWeight: Range;
+  femaleWeight: Range;
+  maleHeight: Range;
+  femaleHeight: Range;
+  hypoallergenic: boolean | null;
+  origin: Origin;
+  coat: Coat;
+  traits: Traits;
+  otherNames: string[];
+  recognizedBy: string[];
+  sources: BreedSource[];
+  images: BreedImage[];
 
   // ---- Derived facets (computed once at parse time) ----
   /** Size band derived from weight, falling back to height. Null when unknown. */
-  readonly sizeBand: SizeBand | null;
+  sizeBand: SizeBand | null;
   /** Coat category merging API `coat.type` and `coat.length`. Null when unknown. */
-  readonly coatCategory: CoatCategory | null;
+  coatCategory: CoatCategory | null;
   /** Lowercased "name + other names", precomputed for debounced search. */
-  readonly searchHaystack: string;
+  searchHaystack: string;
   /** First available thumbnail URL — what the list row renders. */
-  readonly thumbnailUrl: string | null;
+  thumbnailUrl: string | null;
 }
 
 export interface BreedGroup {
-  readonly id: string;
-  readonly name: string;
+  id: string;
+  name: string;
 }
 
 export type SyncStatus =
@@ -133,13 +151,13 @@ export type SyncStatus =
 
 /** Outcome of a completed sync run, persisted so it survives a restart. */
 export interface SyncState {
-  readonly status: SyncStatus;
+  status: SyncStatus;
   /** Epoch ms of the last run that persisted data. Null until the first one. */
-  readonly lastSyncedAt: number | null;
+  lastSyncedAt: number | null;
   /** Page numbers that failed in the last run. */
-  readonly failedPages: readonly number[];
+  failedPages: number[];
   /** User-facing reason the last run was not fully successful. */
-  readonly lastError: string | null;
+  lastError: string | null;
 }
 
 export const INITIAL_SYNC_STATE: SyncState = {
@@ -151,8 +169,8 @@ export const INITIAL_SYNC_STATE: SyncState = {
 
 /** Result handed back by the sync service to the store. */
 export interface SyncResult {
-  readonly status: Extract<SyncStatus, 'success' | 'partial' | 'error'>;
-  readonly syncedAt: number;
-  readonly failedPages: readonly number[];
-  readonly error: string | null;
+  status: 'success' | 'partial' | 'error';
+  syncedAt: number;
+  failedPages: number[];
+  error: string | null;
 }

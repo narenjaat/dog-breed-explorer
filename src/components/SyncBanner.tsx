@@ -15,36 +15,34 @@ import type { SyncStatus } from '@/types';
 import { formatRelativeTime } from '@/format';
 
 export interface SyncBannerProps {
-  readonly status: SyncStatus;
-  readonly isOnline: boolean;
-  readonly lastSyncedAt: number | null;
-  readonly errorMessage: string | null;
-  readonly cachedBreedCount: number;
-  readonly onRetry: () => void;
+  status: SyncStatus;
+  isOnline: boolean;
+  lastSyncedAt: number | null;
+  errorMessage: string | null;
+  cachedBreedCount: number;
+  onRetry: () => void;
 }
 
 type BannerTone = 'info' | 'warning' | 'danger' | 'muted';
 
 interface BannerContent {
-  readonly message: string;
-  readonly tone: BannerTone;
-  readonly showSpinner: boolean;
-  readonly showRetry: boolean;
+  message: string;
+  tone: BannerTone;
+  showSpinner: boolean;
+  showRetry: boolean;
 }
 
 /**
- * Maps sync + connectivity state to exactly one message.
- *
- * Pure and exported so the banner's decision table can be unit tested without
- * mounting the component.
+ * Decides which single message the banner shows. A plain function (no React),
+ * so the tests can check every case without rendering anything.
  */
 export function resolveBannerContent(props: {
-  readonly status: SyncStatus;
-  readonly isOnline: boolean;
-  readonly lastSyncedAt: number | null;
-  readonly errorMessage: string | null;
-  readonly cachedBreedCount: number;
-  readonly now?: number;
+  status: SyncStatus;
+  isOnline: boolean;
+  lastSyncedAt: number | null;
+  errorMessage: string | null;
+  cachedBreedCount: number;
+  now?: number;
 }): BannerContent | null {
   const { status, isOnline, lastSyncedAt, errorMessage, cachedBreedCount, now } = props;
   const freshness = formatRelativeTime(lastSyncedAt, now);
@@ -93,16 +91,7 @@ export function resolveBannerContent(props: {
     };
   }
 
-  if (status === 'success' && lastSyncedAt !== null) {
-    return {
-      message: `Last synced ${freshness}`,
-      tone: 'info',
-      showSpinner: false,
-      showRetry: false,
-    };
-  }
-
-  // Idle with cached data from a previous launch.
+  // All good (this run, or a previous launch): just show how fresh the data is.
   if (lastSyncedAt !== null) {
     return {
       message: `Last synced ${freshness}`,
@@ -122,7 +111,7 @@ function SyncBannerComponent({
   errorMessage,
   cachedBreedCount,
   onRetry,
-}: SyncBannerProps): React.ReactElement | null {
+}: SyncBannerProps) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -137,7 +126,12 @@ function SyncBannerComponent({
   if (content === null) return null;
 
   const toneStyle = styles[content.tone];
-  const toneTextStyle = styles[`${content.tone}Text` as const];
+  const toneTextStyle = {
+    info: styles.infoText,
+    warning: styles.warningText,
+    danger: styles.dangerText,
+    muted: styles.mutedText,
+  }[content.tone];
 
   return (
     <View
