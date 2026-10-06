@@ -17,9 +17,6 @@ export interface ErrorBoundaryProps {
   readonly children: ReactNode;
   /** Shown in the fallback, e.g. "the breed gallery". */
   readonly featureName?: string;
-  /** Custom fallback; receives a reset callback to retry the subtree. */
-  readonly fallback?: (error: Error, reset: () => void) => ReactNode;
-  readonly onError?: (error: Error, info: ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -38,7 +35,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       feature: this.props.featureName ?? 'app',
       componentStack: info.componentStack,
     });
-    this.props.onError?.(error, info);
   }
 
   private readonly handleReset = (): void => {
@@ -47,10 +43,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   override render(): ReactNode {
     const { error } = this.state;
-    const { children, fallback, featureName } = this.props;
+    const { children, featureName } = this.props;
 
     if (error === null) return children;
-    if (fallback !== undefined) return fallback(error, this.handleReset);
 
     return (
       <View style={styles.container}>

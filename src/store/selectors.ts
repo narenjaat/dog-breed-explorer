@@ -12,19 +12,15 @@ import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
 import { breedsAdapter, groupsAdapter } from '@/store/slices/breedsSlice';
 import type { Breed, BreedGroup } from '@/types/domain';
-import { escapeRegExpChars } from '@/utils/text';
 
 const breedSelectors = breedsAdapter.getSelectors<RootState>((state) => state.breeds.breeds);
 const groupSelectors = groupsAdapter.getSelectors<RootState>((state) => state.breeds.groups);
 
 export const selectAllBreeds = breedSelectors.selectAll;
-export const selectBreedEntities = breedSelectors.selectEntities;
 export const selectBreedTotal = breedSelectors.selectTotal;
 export const selectAllGroups = groupSelectors.selectAll;
 
 export const selectIsHydrating = (state: RootState): boolean => state.breeds.isHydrating;
-export const selectDataOrigin = (state: RootState): string => state.breeds.origin;
-export const selectCacheError = (state: RootState): string | null => state.breeds.cacheError;
 
 export const selectFilters = (state: RootState) => state.filters;
 export const selectSearchInput = (state: RootState): string => state.filters.searchInput;
@@ -32,8 +28,6 @@ export const selectSearchQuery = (state: RootState): string => state.filters.sea
 
 export const selectSyncState = (state: RootState) => state.sync;
 export const selectIsOnline = (state: RootState): boolean => state.sync.isOnline;
-export const selectSyncStatus = (state: RootState) => state.sync.status;
-export const selectLastSyncedAt = (state: RootState): number | null => state.sync.lastSyncedAt;
 
 /** O(1) detail-screen lookup, thanks to the normalised entity map. */
 export const selectBreedById = (state: RootState, breedId: string): Breed | undefined =>
@@ -185,14 +179,4 @@ export const selectGroupedBreeds = createSelector(
 export const selectFilteredCount = createSelector(
   [selectFilteredBreeds],
   (breeds): number => breeds.length,
-);
-
-/** Case-insensitive regex for highlighting the search term in results. */
-export const selectSearchHighlightPattern = createSelector(
-  [selectSearchQuery],
-  (query): RegExp | null => {
-    const trimmed = query.trim();
-    if (trimmed.length === 0) return null;
-    return new RegExp(`(${escapeRegExpChars(trimmed)})`, 'iu');
-  },
 );

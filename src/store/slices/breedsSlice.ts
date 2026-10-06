@@ -21,25 +21,17 @@ export const groupsAdapter = createEntityAdapter<BreedGroup>({
   sortComparer: (a, b) => a.name.localeCompare(b.name),
 });
 
-/** Where the currently-displayed data came from. Drives the cache banner. */
-export type DataOrigin = 'none' | 'cache' | 'network';
-
 export interface BreedsState {
   readonly breeds: EntityState<Breed, string>;
   readonly groups: EntityState<BreedGroup, string>;
   /** True until the first load attempt resolves, for the skeleton state. */
   readonly isHydrating: boolean;
-  readonly origin: DataOrigin;
-  /** Error from loading the local cache (not from the network). */
-  readonly cacheError: string | null;
 }
 
 const INITIAL_STATE: BreedsState = {
   breeds: breedsAdapter.getInitialState(),
   groups: groupsAdapter.getInitialState(),
   isHydrating: true,
-  origin: 'none',
-  cacheError: null,
 };
 
 const breedsSlice = createSlice({
@@ -48,7 +40,6 @@ const breedsSlice = createSlice({
   reducers: {
     hydrationStarted(state) {
       state.isHydrating = true;
-      state.cacheError = null;
     },
     /**
      * Replaces the projection with what the local cache holds.
@@ -62,12 +53,10 @@ const breedsSlice = createSlice({
       breedsAdapter.setAll(state.breeds, action.payload.breeds as Breed[]);
       groupsAdapter.setAll(state.groups, action.payload.groups as BreedGroup[]);
       state.isHydrating = false;
-      state.origin = action.payload.breeds.length > 0 ? 'cache' : 'none';
-      state.cacheError = null;
     },
-    hydrationFailed(state, action: PayloadAction<string>) {
+    /** The cache could not be read; the network path can still fill it. */
+    hydrationFailed(state) {
       state.isHydrating = false;
-      state.cacheError = action.payload;
     },
     /**
      * Applies freshly-synced records. `upsertMany` (not `setAll`) so a partial
@@ -76,7 +65,6 @@ const breedsSlice = createSlice({
     breedsUpserted(state, action: PayloadAction<readonly Breed[]>) {
       breedsAdapter.upsertMany(state.breeds, action.payload as Breed[]);
       state.isHydrating = false;
-      state.origin = 'network';
     },
     groupsUpserted(state, action: PayloadAction<readonly BreedGroup[]>) {
       groupsAdapter.upsertMany(state.groups, action.payload as BreedGroup[]);
@@ -85,15 +73,10 @@ const breedsSlice = createSlice({
     breedUpdated(state, action: PayloadAction<Breed>) {
       breedsAdapter.upsertOne(state.breeds, action.payload);
     },
-    allBreedsCleared(state) {
-      breedsAdapter.removeAll(state.breeds);
-      state.origin = 'none';
-    },
   },
 });
 
 export const {
-  allBreedsCleared,
   breedUpdated,
   breedsUpserted,
   groupsUpserted,
@@ -103,4 +86,3 @@ export const {
 } = breedsSlice.actions;
 
 export const breedsReducer = breedsSlice.reducer;
-export { INITIAL_STATE as INITIAL_BREEDS_STATE };

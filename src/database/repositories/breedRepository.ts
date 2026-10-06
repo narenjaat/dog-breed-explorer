@@ -219,33 +219,28 @@ export async function upsertBreeds(breeds: readonly Breed[], syncedAt: number): 
     const breedStatement = await db.prepare(UPSERT_BREED_SQL);
     const imageStatement = await db.prepare(UPSERT_IMAGE_SQL);
 
-    try {
-      for (const breed of breeds) {
-        await breedStatement.execute(breedToBindValues(breed, syncedAt));
+    for (const breed of breeds) {
+      await breedStatement.execute(breedToBindValues(breed, syncedAt));
 
-        // Replace this breed's images wholesale so images removed upstream do
-        // not linger. Scoped to one breed, so it is not a global wipe.
-        await db.run('DELETE FROM breed_images WHERE breed_id = ?', [breed.id]);
+      // Replace this breed's images wholesale so images removed upstream do
+      // not linger. Scoped to one breed, so it is not a global wipe.
+      await db.run('DELETE FROM breed_images WHERE breed_id = ?', [breed.id]);
 
-        for (const image of breed.images) {
-          await imageStatement.execute([
-            image.id,
-            breed.id,
-            image.position,
-            image.thumbUrl,
-            image.mediumUrl,
-            image.largeUrl,
-            image.attribution.author,
-            image.attribution.license,
-            image.attribution.licenseUrl,
-            image.attribution.source,
-            image.attribution.sourceUrl,
-          ]);
-        }
+      for (const image of breed.images) {
+        await imageStatement.execute([
+          image.id,
+          breed.id,
+          image.position,
+          image.thumbUrl,
+          image.mediumUrl,
+          image.largeUrl,
+          image.attribution.author,
+          image.attribution.license,
+          image.attribution.licenseUrl,
+          image.attribution.source,
+          image.attribution.sourceUrl,
+        ]);
       }
-    } finally {
-      await breedStatement.finalize();
-      await imageStatement.finalize();
     }
   });
 }
@@ -309,13 +304,4 @@ export async function countBreeds(): Promise<number> {
   const db = await getDatabase();
   const row = await db.getFirst<{ total: number }>('SELECT COUNT(*) AS total FROM breeds');
   return row?.total ?? 0;
-}
-
-/** Clears breed data. Used only by an explicit user-initiated reset. */
-export async function clearBreeds(): Promise<void> {
-  const db = await getDatabase();
-  await db.withTransaction(async () => {
-    await db.run('DELETE FROM breed_images');
-    await db.run('DELETE FROM breeds');
-  });
 }

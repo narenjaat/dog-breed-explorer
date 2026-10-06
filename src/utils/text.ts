@@ -1,10 +1,5 @@
 /** Small string helpers shared across UI and selectors. */
 
-/** Escapes regex metacharacters so user input is matched literally. */
-export function escapeRegExpChars(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-}
-
 /** Initials for the thumbnail placeholder shown before an image loads. */
 export function initialsFor(name: string): string {
   const words = name

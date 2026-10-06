@@ -10,9 +10,6 @@ import { INITIAL_SYNC_STATE } from '@/types/sync';
 
 export interface SyncSliceState extends SyncState {
   readonly isOnline: boolean;
-  /** False until the first connectivity probe resolves, so the UI does not
-   *  flash an "Offline" banner during startup. */
-  readonly hasNetworkStatus: boolean;
   /** True when the user pulled to refresh, to distinguish from auto-sync. */
   readonly isManualRefresh: boolean;
 }
@@ -20,7 +17,6 @@ export interface SyncSliceState extends SyncState {
 const INITIAL_STATE: SyncSliceState = {
   ...INITIAL_SYNC_STATE,
   isOnline: true,
-  hasNetworkStatus: false,
   isManualRefresh: false,
 };
 
@@ -65,7 +61,6 @@ const syncSlice = createSlice({
     },
     networkStatusChanged(state, action: PayloadAction<boolean>) {
       state.isOnline = action.payload;
-      state.hasNetworkStatus = true;
     },
   },
 });
@@ -75,4 +70,3 @@ export const { networkStatusChanged, syncFailed, syncFinished, syncStarted, sync
 
 export const syncReducer = syncSlice.reducer;
 export type { SyncStatus };
-export { INITIAL_STATE as INITIAL_SYNC_SLICE_STATE };

@@ -108,4 +108,3 @@ export const {
 } = filtersSlice.actions;
 
 export const filtersReducer = filtersSlice.reducer;
-export { INITIAL_STATE as INITIAL_FILTERS_STATE };

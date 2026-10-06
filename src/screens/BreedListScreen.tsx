@@ -25,10 +25,9 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   selectActiveFilterCount,
-  selectAllGroups,
   selectBreedTotal,
   selectFilteredCount,
-  selectFilters,
+  selectSearchQuery,
   selectGroupedBreeds,
   selectHasActiveFilters,
   selectIsHydrating,
@@ -36,19 +35,11 @@ import {
   selectSyncState,
 } from '@/store/selectors';
 import type { BreedSection } from '@/store/selectors';
-import {
-  allFiltersCleared,
-  coatCategoryToggled,
-  groupToggled,
-  hypoallergenicToggled,
-  sizeBandToggled,
-  traitKeyToggled,
-  traitMinScoreChanged,
-} from '@/store/slices/filtersSlice';
+import { allFiltersCleared } from '@/store/slices/filtersSlice';
 import { BREED_ROW_HEIGHT, SECTION_HEADER_HEIGHT } from '@/theme';
 import type { Theme } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
-import type { Breed, CoatCategory, FilterableTraitKey, SizeBand } from '@/types/domain';
+import type { Breed } from '@/types/domain';
 import type { BreedListScreenProps } from '@/navigation/types';
 import { formatGroupName } from '@/utils/format';
 
@@ -61,8 +52,7 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
   const [filtersVisible, setFiltersVisible] = useState(false);
 
   const sections = useAppSelector(selectGroupedBreeds);
-  const groups = useAppSelector(selectAllGroups);
-  const filters = useAppSelector(selectFilters);
+  const searchQuery = useAppSelector(selectSearchQuery);
   const filteredCount = useAppSelector(selectFilteredCount);
   const totalCount = useAppSelector(selectBreedTotal);
   const activeFilterCount = useAppSelector(selectActiveFilterCount);
@@ -71,7 +61,7 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
   const isOnline = useAppSelector(selectIsOnline);
   const sync = useAppSelector(selectSyncState);
 
-  const { refresh, retry } = useOfflineSync();
+  const { refresh } = useOfflineSync();
   const search = useDebouncedSearch();
 
   // --- Stable callbacks ---------------------------------------------------
@@ -90,42 +80,6 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
     setFiltersVisible(false);
   }, []);
 
-  const handleToggleGroup = useCallback(
-    (groupId: string) => {
-      dispatch(groupToggled(groupId));
-    },
-    [dispatch],
-  );
-  const handleToggleSize = useCallback(
-    (size: SizeBand) => {
-      dispatch(sizeBandToggled(size));
-    },
-    [dispatch],
-  );
-  const handleToggleCoat = useCallback(
-    (coat: CoatCategory) => {
-      dispatch(coatCategoryToggled(coat));
-    },
-    [dispatch],
-  );
-  const handleToggleHypoallergenic = useCallback(
-    (value: boolean) => {
-      dispatch(hypoallergenicToggled(value));
-    },
-    [dispatch],
-  );
-  const handleToggleTrait = useCallback(
-    (trait: FilterableTraitKey) => {
-      dispatch(traitKeyToggled(trait));
-    },
-    [dispatch],
-  );
-  const handleChangeTraitScore = useCallback(
-    (score: number) => {
-      dispatch(traitMinScoreChanged(score));
-    },
-    [dispatch],
-  );
   const handleClearAll = useCallback(() => {
     dispatch(allFiltersCleared());
   }, [dispatch]);
@@ -245,18 +199,18 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
               : 'Connect to the internet once to download the catalogue. After that the app works offline.'
           }
           actionLabel={isOnline ? 'Retry' : undefined}
-          onAction={isOnline ? retry : undefined}
+          onAction={isOnline ? refresh : undefined}
         />
       );
     }
 
-    const hasSearch = filters.searchQuery.trim().length > 0;
+    const hasSearch = searchQuery.trim().length > 0;
     return (
       <EmptyState
         title="No matching breeds"
         message={
           hasSearch
-            ? `No breeds match "${filters.searchQuery.trim()}"${
+            ? `No breeds match "${searchQuery.trim()}"${
                 hasActiveFilters ? ' with the current filters' : ''
               }.`
             : 'No breeds match the current filters.'
@@ -265,15 +219,7 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
         onAction={hasActiveFilters ? handleClearAll : undefined}
       />
     );
-  }, [
-    isHydrating,
-    totalCount,
-    isOnline,
-    retry,
-    filters.searchQuery,
-    hasActiveFilters,
-    handleClearAll,
-  ]);
+  }, [isHydrating, totalCount, isOnline, refresh, searchQuery, hasActiveFilters, handleClearAll]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -283,7 +229,7 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
         lastSyncedAt={sync.lastSyncedAt}
         errorMessage={sync.lastError}
         cachedBreedCount={totalCount}
-        onRetry={retry}
+        onRetry={refresh}
       />
 
       <SectionList
@@ -317,20 +263,7 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
         testID="breed-list"
       />
 
-      <FilterSheet
-        visible={filtersVisible}
-        filters={filters}
-        groups={groups}
-        resultCount={filteredCount}
-        onClose={handleCloseFilters}
-        onToggleGroup={handleToggleGroup}
-        onToggleSize={handleToggleSize}
-        onToggleCoat={handleToggleCoat}
-        onToggleHypoallergenic={handleToggleHypoallergenic}
-        onToggleTrait={handleToggleTrait}
-        onChangeTraitScore={handleChangeTraitScore}
-        onClearAll={handleClearAll}
-      />
+      <FilterSheet visible={filtersVisible} onClose={handleCloseFilters} />
     </View>
   );
 }

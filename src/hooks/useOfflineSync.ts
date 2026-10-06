@@ -42,11 +42,13 @@ import { selectIsOnline } from '@/store/selectors';
 /** Data older than this triggers an automatic refresh on launch. */
 export const STALE_AFTER_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+function isStale(lastSyncedAt: number | null): boolean {
+  return lastSyncedAt === null || Date.now() - lastSyncedAt > STALE_AFTER_MS;
+}
+
 export interface UseOfflineSyncResult {
-  /** Pull-to-refresh handler. */
+  /** Starts a manual sync: pull-to-refresh and every Retry button. */
   readonly refresh: () => void;
-  /** Retry handler for the error banner. */
-  readonly retry: () => void;
 }
 
 export function useOfflineSync(): UseOfflineSyncResult {
@@ -117,13 +119,11 @@ export function useOfflineSync(): UseOfflineSyncResult {
 
         dispatch(syncStateRestored(syncState));
         dispatch(hydratedFromCache({ breeds, groups }));
-      } catch (error) {
+      } catch {
         if (!mountedRef.current) return;
         // A broken cache must not block the app; the network path can still
         // populate it.
-        const message =
-          error instanceof Error ? error.message : 'Could not read locally cached breeds.';
-        dispatch(hydrationFailed(message));
+        dispatch(hydrationFailed());
       }
 
       const snapshot = await getNetworkSnapshot();
@@ -134,10 +134,8 @@ export function useOfflineSync(): UseOfflineSyncResult {
 
       if (!connected) return;
 
-      const isStale = lastSyncedAt === null || Date.now() - lastSyncedAt > STALE_AFTER_MS;
-
       // Sync when there is nothing cached, or when what is cached is old.
-      if (cachedBreedCount === 0 || isStale) {
+      if (cachedBreedCount === 0 || isStale(lastSyncedAt)) {
         void runSync(false);
       }
     };
@@ -172,8 +170,7 @@ export function useOfflineSync(): UseOfflineSyncResult {
       if (nextState !== 'active' || !onlineRef.current) return;
       void (async () => {
         const syncState = await getSyncState();
-        const lastSyncedAt = syncState.lastSyncedAt;
-        if (lastSyncedAt === null || Date.now() - lastSyncedAt > STALE_AFTER_MS) {
+        if (isStale(syncState.lastSyncedAt)) {
           void runSync(false);
         }
       })();
@@ -189,9 +186,5 @@ export function useOfflineSync(): UseOfflineSyncResult {
     void runSync(true);
   }, [runSync]);
 
-  const retry = useCallback(() => {
-    void runSync(true);
-  }, [runSync]);
-
-  return { refresh, retry };
+  return { refresh };
 }

@@ -7,7 +7,7 @@
  */
 
 import { configureStore } from '@reduxjs/toolkit';
-import { useDispatch, useSelector, useStore } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 
 import { breedsReducer } from '@/store/slices/breedsSlice';
@@ -32,9 +32,7 @@ export const store = configureStore({
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-export type AppStore = typeof store;
 
 /** Typed hooks — components never import the untyped react-redux versions. */
 export const useAppDispatch: () => AppDispatch = useDispatch;
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
-export const useAppStore: () => AppStore = useStore;

@@ -19,9 +19,8 @@
  * the server's HTTP cache headers, so slides seen once can age out of the
  * disk cache instead of being pinned there like `immutable` entries.
  *
- * FastImage owns the eviction; this module decides *policy* (which variant,
- * which cache mode) and exposes the one lever the OS cannot infer: clearing
- * the cache on request.
+ * FastImage owns the eviction; this module only decides *policy* (which
+ * variant, which cache mode).
  */
 
 import FastImage from '@d11/react-native-fast-image';
@@ -101,9 +100,4 @@ export async function prefetchListThumbnails(
     // Prefetching is an optimisation; failing it must never surface to the
     // user or fail the sync that triggered it.
   }
-}
-
-/** Clears both cache tiers. Exposed for a user-initiated "free up space". */
-export async function clearImageCache(): Promise<void> {
-  await Promise.allSettled([FastImage.clearMemoryCache(), FastImage.clearDiskCache()]);
 }

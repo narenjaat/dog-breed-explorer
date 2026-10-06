@@ -17,7 +17,6 @@ export const DATABASE_NAME = 'tripare-dog-breeds.db';
 /** A compiled statement reused across many rows inside one transaction. */
 export interface SqlStatement {
   execute(params: readonly SQLiteBindValue[]): Promise<void>;
-  finalize(): Promise<void>;
 }
 
 /** The subset of SQLite the repositories need. */
@@ -33,8 +32,8 @@ export interface SqlDatabase {
    * queues transactions, so two concurrent callers never nest a BEGIN.
    */
   withTransaction(work: () => Promise<void>): Promise<void>;
+  /** op-sqlite frees the native statement when the JS object is collected. */
   prepare(sql: string): Promise<SqlStatement>;
-  close(): Promise<void>;
 }
 
 function wrap(db: DB): SqlDatabase {
@@ -67,14 +66,7 @@ function wrap(db: DB): SqlDatabase {
           await statement.bind([...params]);
           await statement.execute();
         },
-        async finalize() {
-          // op-sqlite finalizes the native statement when the JS object is
-          // garbage collected; there is no explicit close to call.
-        },
       };
-    },
-    async close() {
-      db.close();
     },
   };
 }
@@ -107,17 +99,4 @@ export async function getDatabase(): Promise<SqlDatabase> {
     });
   }
   return connectionPromise;
-}
-
-/** Closes the connection. Used by tests and on teardown. */
-export async function closeDatabase(): Promise<void> {
-  const pending = connectionPromise;
-  connectionPromise = null;
-  if (pending === null) return;
-  try {
-    const db = await pending;
-    await db.close();
-  } catch {
-    // Already closed or never opened cleanly; nothing to release.
-  }
 }

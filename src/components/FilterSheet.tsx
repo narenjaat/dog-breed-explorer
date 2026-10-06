@@ -6,30 +6,35 @@
  * "Sporting + Large + Hypoallergenic + good_with_children >= 4" expressible.
  */
 
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAppDispatch, useAppSelector } from '@/store';
+import { selectAllGroups, selectFilteredCount, selectFilters } from '@/store/selectors';
+import {
+  allFiltersCleared,
+  coatCategoryToggled,
+  groupToggled,
+  hypoallergenicToggled,
+  sizeBandToggled,
+  traitKeyToggled,
+  traitMinScoreChanged,
+} from '@/store/slices/filtersSlice';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Theme } from '@/theme';
 import { MIN_TOUCH_TARGET } from '@/theme';
-import type { BreedGroup, CoatCategory, FilterableTraitKey, SizeBand } from '@/types/domain';
-import { COAT_CATEGORIES, SIZE_BANDS, TRAIT_SCORE_MAX } from '@/types/domain';
-import type { FiltersState } from '@/store/slices/filtersSlice';
+import type { CoatCategory, SizeBand } from '@/types/domain';
+import {
+  COAT_CATEGORIES,
+  FILTERABLE_TRAIT_KEYS,
+  SIZE_BANDS,
+  TRAIT_SCORE_MAX,
+} from '@/types/domain';
 import { formatGroupName, humanizeKey } from '@/utils/format';
 
 export interface FilterSheetProps {
   readonly visible: boolean;
-  readonly filters: FiltersState;
-  readonly groups: readonly BreedGroup[];
-  readonly resultCount: number;
   readonly onClose: () => void;
-  readonly onToggleGroup: (groupId: string) => void;
-  readonly onToggleSize: (size: SizeBand) => void;
-  readonly onToggleCoat: (coat: CoatCategory) => void;
-  readonly onToggleHypoallergenic: (value: boolean) => void;
-  readonly onToggleTrait: (trait: FilterableTraitKey) => void;
-  readonly onChangeTraitScore: (score: number) => void;
-  readonly onClearAll: () => void;
 }
 
 const SIZE_LABELS: Readonly<Record<SizeBand, string>> = {
@@ -48,11 +53,7 @@ const COAT_LABELS: Readonly<Record<CoatCategory, string>> = {
   hairless: 'Hairless',
 };
 
-const TRAIT_OPTIONS: readonly FilterableTraitKey[] = [
-  'good_with_children',
-  'good_with_dogs',
-  'good_with_strangers',
-];
+const SCORE_OPTIONS = Array.from({ length: TRAIT_SCORE_MAX }, (_, index) => index + 1);
 
 interface ChipProps {
   readonly label: string;
@@ -60,7 +61,7 @@ interface ChipProps {
   readonly onPress: () => void;
 }
 
-function ChipComponent({ label, selected, onPress }: ChipProps): React.ReactElement {
+function Chip({ label, selected, onPress }: ChipProps): React.ReactElement {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -81,114 +82,20 @@ function ChipComponent({ label, selected, onPress }: ChipProps): React.ReactElem
   );
 }
 
-const Chip = memo(ChipComponent);
-
-/** Wraps a chip so the parent passes a stable callback per value. */
-function GroupChip({
-  group,
-  selected,
-  onToggle,
-}: {
-  readonly group: BreedGroup;
-  readonly selected: boolean;
-  readonly onToggle: (groupId: string) => void;
-}): React.ReactElement {
-  const handlePress = useCallback(() => {
-    onToggle(group.id);
-  }, [onToggle, group.id]);
-  return <Chip label={formatGroupName(group.name)} selected={selected} onPress={handlePress} />;
-}
-
-function SizeChip({
-  size,
-  selected,
-  onToggle,
-}: {
-  readonly size: SizeBand;
-  readonly selected: boolean;
-  readonly onToggle: (size: SizeBand) => void;
-}): React.ReactElement {
-  const handlePress = useCallback(() => {
-    onToggle(size);
-  }, [onToggle, size]);
-  return <Chip label={SIZE_LABELS[size]} selected={selected} onPress={handlePress} />;
-}
-
-function CoatChip({
-  coat,
-  selected,
-  onToggle,
-}: {
-  readonly coat: CoatCategory;
-  readonly selected: boolean;
-  readonly onToggle: (coat: CoatCategory) => void;
-}): React.ReactElement {
-  const handlePress = useCallback(() => {
-    onToggle(coat);
-  }, [onToggle, coat]);
-  return <Chip label={COAT_LABELS[coat]} selected={selected} onPress={handlePress} />;
-}
-
-function TraitChip({
-  trait,
-  selected,
-  onToggle,
-}: {
-  readonly trait: FilterableTraitKey;
-  readonly selected: boolean;
-  readonly onToggle: (trait: FilterableTraitKey) => void;
-}): React.ReactElement {
-  const handlePress = useCallback(() => {
-    onToggle(trait);
-  }, [onToggle, trait]);
-  return <Chip label={humanizeKey(trait)} selected={selected} onPress={handlePress} />;
-}
-
-function ScoreChip({
-  score,
-  selected,
-  onSelect,
-}: {
-  readonly score: number;
-  readonly selected: boolean;
-  readonly onSelect: (score: number) => void;
-}): React.ReactElement {
-  const handlePress = useCallback(() => {
-    onSelect(score);
-  }, [onSelect, score]);
-  return <Chip label={`${String(score)}+`} selected={selected} onPress={handlePress} />;
-}
-
-function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
-  const {
-    visible,
-    filters,
-    groups,
-    resultCount,
-    onClose,
-    onToggleGroup,
-    onToggleSize,
-    onToggleCoat,
-    onToggleHypoallergenic,
-    onToggleTrait,
-    onChangeTraitScore,
-    onClearAll,
-  } = props;
-
+/**
+ * Reads and writes the filters slice directly. The sheet holds a couple of
+ * dozen chips and the Modal renders them only while open, so inline press handlers cost
+ * nothing measurable, and the list screen does not have to relay every
+ * facet's callback.
+ */
+export function FilterSheet({ visible, onClose }: FilterSheetProps): React.ReactElement {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const dispatch = useAppDispatch();
 
-  const handleHypoYes = useCallback(() => {
-    onToggleHypoallergenic(true);
-  }, [onToggleHypoallergenic]);
-  const handleHypoNo = useCallback(() => {
-    onToggleHypoallergenic(false);
-  }, [onToggleHypoallergenic]);
-
-  const scoreOptions = useMemo(
-    () => Array.from({ length: TRAIT_SCORE_MAX }, (_, index) => index + 1),
-    [],
-  );
+  const filters = useAppSelector(selectFilters);
+  const groups = useAppSelector(selectAllGroups);
+  const resultCount = useAppSelector(selectFilteredCount);
 
   return (
     <Modal
@@ -211,7 +118,7 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Filters</Text>
             <Pressable
-              onPress={onClearAll}
+              onPress={() => dispatch(allFiltersCleared())}
               accessibilityRole="button"
               accessibilityLabel="Clear all filters"
               hitSlop={8}
@@ -228,11 +135,11 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
             <Text style={styles.sectionTitle}>Breed group</Text>
             <View style={styles.chipRow}>
               {groups.map((group) => (
-                <GroupChip
+                <Chip
                   key={group.id}
-                  group={group}
+                  label={formatGroupName(group.name)}
                   selected={filters.groupIds.includes(group.id)}
-                  onToggle={onToggleGroup}
+                  onPress={() => dispatch(groupToggled(group.id))}
                 />
               ))}
               {groups.length === 0 ? (
@@ -243,11 +150,11 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
             <Text style={styles.sectionTitle}>Size</Text>
             <View style={styles.chipRow}>
               {SIZE_BANDS.map((size) => (
-                <SizeChip
+                <Chip
                   key={size}
-                  size={size}
+                  label={SIZE_LABELS[size]}
                   selected={filters.sizeBands.includes(size)}
-                  onToggle={onToggleSize}
+                  onPress={() => dispatch(sizeBandToggled(size))}
                 />
               ))}
             </View>
@@ -255,11 +162,11 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
             <Text style={styles.sectionTitle}>Coat</Text>
             <View style={styles.chipRow}>
               {COAT_CATEGORIES.map((coat) => (
-                <CoatChip
+                <Chip
                   key={coat}
-                  coat={coat}
+                  label={COAT_LABELS[coat]}
                   selected={filters.coatCategories.includes(coat)}
-                  onToggle={onToggleCoat}
+                  onPress={() => dispatch(coatCategoryToggled(coat))}
                 />
               ))}
             </View>
@@ -269,19 +176,23 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
               <Chip
                 label="Yes"
                 selected={filters.hypoallergenic === true}
-                onPress={handleHypoYes}
+                onPress={() => dispatch(hypoallergenicToggled(true))}
               />
-              <Chip label="No" selected={filters.hypoallergenic === false} onPress={handleHypoNo} />
+              <Chip
+                label="No"
+                selected={filters.hypoallergenic === false}
+                onPress={() => dispatch(hypoallergenicToggled(false))}
+              />
             </View>
 
             <Text style={styles.sectionTitle}>Trait threshold</Text>
             <View style={styles.chipRow}>
-              {TRAIT_OPTIONS.map((trait) => (
-                <TraitChip
+              {FILTERABLE_TRAIT_KEYS.map((trait) => (
+                <Chip
                   key={trait}
-                  trait={trait}
+                  label={humanizeKey(trait)}
                   selected={filters.traitKey === trait}
-                  onToggle={onToggleTrait}
+                  onPress={() => dispatch(traitKeyToggled(trait))}
                 />
               ))}
             </View>
@@ -292,12 +203,12 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
                   Minimum score for {humanizeKey(filters.traitKey).toLowerCase()}
                 </Text>
                 <View style={styles.chipRow}>
-                  {scoreOptions.map((score) => (
-                    <ScoreChip
+                  {SCORE_OPTIONS.map((score) => (
+                    <Chip
                       key={score}
-                      score={score}
+                      label={`${String(score)}+`}
                       selected={filters.traitMinScore === score}
-                      onSelect={onChangeTraitScore}
+                      onPress={() => dispatch(traitMinScoreChanged(score))}
                     />
                   ))}
                 </View>
@@ -320,8 +231,6 @@ function FilterSheetComponent(props: FilterSheetProps): React.ReactElement {
     </Modal>
   );
 }
-
-export const FilterSheet = memo(FilterSheetComponent);
 
 function createStyles(theme: Theme) {
   return StyleSheet.create({

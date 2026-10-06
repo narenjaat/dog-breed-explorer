@@ -20,12 +20,8 @@ export async function upsertGroups(groups: readonly BreedGroup[], syncedAt: numb
 
   await db.withTransaction(async () => {
     const statement = await db.prepare(UPSERT_GROUP_SQL);
-    try {
-      for (const group of groups) {
-        await statement.execute([group.id, group.name, syncedAt]);
-      }
-    } finally {
-      await statement.finalize();
+    for (const group of groups) {
+      await statement.execute([group.id, group.name, syncedAt]);
     }
   });
 }
