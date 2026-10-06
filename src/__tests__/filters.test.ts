@@ -6,8 +6,9 @@
 import { configureStore } from '@reduxjs/toolkit';
 
 import { parseBreed } from '@/api/parsers';
-import { breedsReducer, hydratedFromCache } from '@/store/slices/breedsSlice';
 import {
+  breedsReducer,
+  hydratedFromCache,
   allFiltersCleared,
   coatCategoryToggled,
   filtersReducer,
@@ -17,8 +18,8 @@ import {
   sizeBandToggled,
   traitKeyToggled,
   traitMinScoreChanged,
-} from '@/store/slices/filtersSlice';
-import { syncReducer } from '@/store/slices/syncSlice';
+  syncReducer,
+} from '@/store';
 import {
   selectActiveFilterCount,
   selectFilteredBreeds,
@@ -26,8 +27,8 @@ import {
   selectHasActiveFilters,
 } from '@/store/selectors';
 import type { RootState } from '@/store';
-import type { ApiBreedResource } from '@/types/api';
-import type { Breed, BreedGroup } from '@/types/domain';
+import type { ApiBreedResource } from '@/__tests__/fixtures';
+import type { Breed, BreedGroup } from '@/types';
 import { GROUP_IDS } from '@/__tests__/fixtures';
 
 function makeStore() {

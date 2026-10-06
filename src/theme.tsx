@@ -1,9 +1,7 @@
-/**
- * Design tokens and light/dark palettes.
- *
- * Colour is always read through `useTheme()` so both schemes stay in sync;
- * no component hardcodes a hex value.
- */
+/** Design tokens, light/dark palettes, and the theme context. */
+
+import React, { createContext, useContext, useMemo } from 'react';
+import { useColorScheme } from 'react-native';
 
 export interface ThemeColors {
   readonly background: string;
@@ -143,3 +141,26 @@ export function createTheme(isDark: boolean): Theme {
 
 export const lightTheme = createTheme(false);
 export const darkTheme = createTheme(true);
+
+const ThemeContext = createContext<Theme>(darkTheme);
+
+export interface ThemeProviderProps {
+  readonly children: React.ReactNode;
+  /** Forces a scheme. Used by tests and by the dark-mode screenshot pass. */
+  readonly forcedScheme?: 'light' | 'dark';
+}
+
+export function ThemeProvider({ children, forcedScheme }: ThemeProviderProps): React.ReactElement {
+  const systemScheme = useColorScheme();
+  const scheme = forcedScheme ?? systemScheme ?? 'light';
+
+  // Memoised so a re-render does not hand every consumer a new object and
+  // invalidate their StyleSheet memoisation.
+  const theme = useMemo(() => createTheme(scheme === 'dark'), [scheme]);
+
+  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme(): Theme {
+  return useContext(ThemeContext);
+}

@@ -11,12 +11,9 @@ import React, { memo, useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 
-import { useTheme } from '@/theme/ThemeProvider';
-import { BREED_ROW_HEIGHT } from '@/theme';
-import type { Breed } from '@/types/domain';
-import { resolveListThumbnail } from '@/services/imageCacheService';
-import { formatRange } from '@/utils/format';
-import { initialsFor } from '@/utils/text';
+import { useTheme, BREED_ROW_HEIGHT } from '@/theme';
+import type { Breed } from '@/types';
+import { formatRange, initialsFor } from '@/format';
 
 export interface BreedListItemProps {
   readonly breed: Breed;
@@ -40,19 +37,10 @@ function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.R
     onPress(breed.id, breed.name);
   }, [onPress, breed.id, breed.name]);
 
-  // The list query does not hydrate image rows (it only needs one thumbnail
-  // per breed), so this resolves against the denormalised `thumbnailUrl`
-  // column and falls back to the image record only if one happens to be
-  // loaded — e.g. after a detail-screen refresh upserted it.
-  const thumbnail = useMemo(
-    () => resolveListThumbnail(breed.thumbnailUrl, breed.images[0] ?? null),
-    [breed.thumbnailUrl, breed.images],
-  );
-
   const sizeLabel = breed.sizeBand === null ? null : (SIZE_LABELS[breed.sizeBand] ?? null);
   const weight = formatRange(breed.maleWeight, 'kg');
 
-  const uri = thumbnail.uri;
+  const uri = breed.thumbnailUrl;
 
   return (
     <Pressable
@@ -69,7 +57,9 @@ function BreedListItemComponent({ breed, onPress }: BreedListItemProps): React.R
           </View>
         ) : (
           <FastImage
-            source={{ uri, cache: thumbnail.cachePolicy }}
+            // `immutable`: list thumbnails are cached to disk by URL and never
+            // revalidated, so an offline relaunch still has art.
+            source={{ uri, cache: FastImage.cacheControl.immutable }}
             style={styles.thumbnail}
             resizeMode={FastImage.resizeMode.cover}
             transition={FastImage.transition.fade}

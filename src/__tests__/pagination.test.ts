@@ -3,10 +3,10 @@
  * cases where that assembly goes wrong.
  */
 
-import { fetchAllBreeds, mergeBreedPages, resolvePageCount } from '@/api/breedsApi';
-import type { BreedPageResult } from '@/api/breedsApi';
+import { fetchAllBreeds, mergeBreedPages, resolvePageCount } from '@/api/dogApi';
+import type { BreedPageResult } from '@/api/dogApi';
 import { parseBreed } from '@/api/parsers';
-import type { Breed } from '@/types/domain';
+import type { Breed } from '@/types';
 import {
   makeBreedWithWeight,
   makeCollectionResponse,

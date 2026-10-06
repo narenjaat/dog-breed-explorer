@@ -8,15 +8,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { fetchBreedById } from '@/api/breedsApi';
-import { isApiError } from '@/api/errors';
-import { getBreedById } from '@/database/repositories/breedRepository';
-import { upsertBreeds } from '@/database/repositories/breedRepository';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { breedUpdated } from '@/store/slices/breedsSlice';
+import { fetchBreedById } from '@/api/dogApi';
+import { isApiError } from '@/api/client';
+import { getBreedById, upsertBreeds } from '@/database/repository';
+import { useAppDispatch, useAppSelector, breedUpdated } from '@/store';
 import { selectBreedById, selectIsOnline } from '@/store/selectors';
 import type { RootState } from '@/store';
-import type { Breed } from '@/types/domain';
+import type { Breed } from '@/types';
 
 export interface UseBreedDetailsResult {
   readonly breed: Breed | null;

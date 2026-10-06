@@ -9,10 +9,10 @@
 import React, { memo, useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useTheme } from '@/theme/ThemeProvider';
+import { useTheme } from '@/theme';
 import type { Theme } from '@/theme';
-import type { SyncStatus } from '@/types/sync';
-import { formatRelativeTime } from '@/utils/format';
+import type { SyncStatus } from '@/types';
+import { formatRelativeTime } from '@/format';
 
 export interface SyncBannerProps {
   readonly status: SyncStatus;

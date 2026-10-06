@@ -5,8 +5,7 @@
  * global "retries off" default in jest.setup.ts.
  */
 
-import { backoffDelayMs, requestJson } from '@/api/client';
-import { ApiError, describeApiError, toApiError } from '@/api/errors';
+import { backoffDelayMs, requestJson, ApiError, describeApiError, toApiError } from '@/api/client';
 
 const originalFetch = globalThis.fetch;
 

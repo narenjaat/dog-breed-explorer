@@ -41,3 +41,6 @@ DerivedData
 **/.xcode.env.local
 **/Pods/
 /vendor/bundle/
+
+# Local Claude Code settings
+.claude/

@@ -1,37 +1,81 @@
 /**
  * Search input with a filter button.
  *
- * The input is uncontrolled-by-debounce: it renders `value` from the store on
- * every keystroke (so typing feels instant) while the *query* that drives
- * filtering is committed separately after a debounce.
+ * Typing updates `searchInput` on every keystroke, so the field feels instant,
+ * while `searchQuery`, which re-filters the list, is committed only after a
+ * 250ms pause (`useDebouncedSearch`).
  */
 
+import { useCallback, useEffect, useRef } from 'react';
+import {
+  useAppDispatch,
+  useAppSelector,
+  searchCleared,
+  searchInputChanged,
+  searchQueryCommitted,
+} from '@/store';
+import { selectActiveFilterCount, selectFilteredCount, selectSearchInput } from '@/store/selectors';
 import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-
-import { useTheme } from '@/theme/ThemeProvider';
+import { useTheme, MIN_TOUCH_TARGET } from '@/theme';
 import type { Theme } from '@/theme';
-import { MIN_TOUCH_TARGET } from '@/theme';
 
-export interface SearchBarProps {
+/** 250ms: long enough to skip intermediate keystrokes, short enough to feel live. */
+const SEARCH_DEBOUNCE_MS = 250;
+
+interface UseDebouncedSearchResult {
   readonly value: string;
   readonly onChangeText: (text: string) => void;
   readonly onClear: () => void;
-  readonly onOpenFilters: () => void;
-  readonly activeFilterCount: number;
-  readonly resultCount: number;
 }
 
-function SearchBarComponent({
-  value,
-  onChangeText,
-  onClear,
-  onOpenFilters,
-  activeFilterCount,
-  resultCount,
-}: SearchBarProps): React.ReactElement {
+function useDebouncedSearch(debounceMs: number = SEARCH_DEBOUNCE_MS): UseDebouncedSearchResult {
+  const dispatch = useAppDispatch();
+  const value = useAppSelector(selectSearchInput);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const onChangeText = useCallback(
+    (text: string) => {
+      dispatch(searchInputChanged(text));
+      clearTimer();
+      timerRef.current = setTimeout(() => {
+        dispatch(searchQueryCommitted(text));
+        timerRef.current = null;
+      }, debounceMs);
+    },
+    [dispatch, debounceMs, clearTimer],
+  );
+
+  const onClear = useCallback(() => {
+    // Clearing is intentional and immediate: waiting 250ms to restore the
+    // full list after tapping ✕ feels broken.
+    clearTimer();
+    dispatch(searchCleared());
+  }, [dispatch, clearTimer]);
+
+  // Cancel a pending commit if the screen unmounts mid-debounce.
+  useEffect(() => clearTimer, [clearTimer]);
+
+  return { value, onChangeText, onClear };
+}
+
+export interface SearchBarProps {
+  readonly onOpenFilters: () => void;
+}
+
+function SearchBarComponent({ onOpenFilters }: SearchBarProps): React.ReactElement {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const { value, onChangeText, onClear } = useDebouncedSearch();
+  const activeFilterCount = useAppSelector(selectActiveFilterCount);
+  const resultCount = useAppSelector(selectFilteredCount);
 
   return (
     <View style={styles.container}>

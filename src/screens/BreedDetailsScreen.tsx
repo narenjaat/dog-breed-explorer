@@ -6,32 +6,175 @@
  * rather than letting "null"/"undefined" reach the UI.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { BreedGallery } from '@/components/BreedGallery';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { EmptyState } from '@/components/States';
-import { ExerciseScale, TraitScale } from '@/components/TraitScale';
-import { useBreedDetails } from '@/hooks/useBreedDetails';
-import { useAppSelector } from '@/store';
-import { selectGroupsById, selectIsOnline } from '@/store/selectors';
-import { MIN_TOUCH_TARGET } from '@/theme';
-import type { Theme } from '@/theme';
-import { useTheme } from '@/theme/ThemeProvider';
-import type { Breed, ScoredTraitKey } from '@/types/domain';
-import { SCORED_TRAIT_KEYS } from '@/types/domain';
-import type { BreedDetailsScreenProps } from '@/navigation/types';
+import { StyleSheet, Text, View, Pressable, RefreshControl, ScrollView } from 'react-native';
+import { useTheme, MIN_TOUCH_TARGET } from '@/theme';
+import { TRAIT_SCORE_MAX, SCORED_TRAIT_KEYS } from '@/types';
 import {
   UNKNOWN_PLACEHOLDER,
+  formatExerciseMinutes,
   formatGroupName,
   formatHypoallergenic,
   formatLifespan,
   formatList,
   formatOrigin,
   formatRange,
-} from '@/utils/format';
+} from '@/format';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BreedGallery } from '@/components/BreedGallery';
+import { ErrorBoundary, EmptyState } from '@/components/States';
+import { useBreedDetails } from '@/hooks/useBreedDetails';
+import { useAppSelector } from '@/store';
+import { selectGroupsById, selectIsOnline } from '@/store/selectors';
+import type { Theme } from '@/theme';
+import type { Breed, ScoredTraitKey } from '@/types';
+import type { BreedDetailsScreenProps } from '@/navigation';
+
+export interface TraitScaleProps {
+  readonly label: string;
+  /** 1-5 score, or null when the API did not rate this trait. */
+  readonly score: number | null;
+}
+
+function TraitScaleComponent({ label, score }: TraitScaleProps): React.ReactElement {
+  const theme = useTheme();
+  const styles = useMemo(() => createTraitStyles(theme), [theme]);
+
+  const hasScore = score !== null;
+  const rounded = hasScore ? Math.max(0, Math.min(TRAIT_SCORE_MAX, Math.round(score))) : 0;
+
+  return (
+    <View
+      style={styles.container}
+      accessible
+      accessibilityRole="progressbar"
+      // Announces "Energy, 3 of 5" rather than reading five anonymous bars.
+      accessibilityLabel={
+        hasScore
+          ? `${label}, ${String(rounded)} out of ${String(TRAIT_SCORE_MAX)}`
+          : `${label}, not rated`
+      }
+      accessibilityValue={hasScore ? { min: 0, max: TRAIT_SCORE_MAX, now: rounded } : undefined}
+    >
+      <View style={styles.header}>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.value, !hasScore && styles.valueMuted]}>
+          {hasScore ? `${String(rounded)}/${String(TRAIT_SCORE_MAX)}` : UNKNOWN_PLACEHOLDER}
+        </Text>
+      </View>
+
+      <View style={styles.track} importantForAccessibility="no-hide-descendants">
+        {Array.from({ length: TRAIT_SCORE_MAX }, (_, index) => (
+          <View
+            key={index}
+            style={[styles.segment, index < rounded ? styles.segmentFilled : styles.segmentEmpty]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export const TraitScale = memo(TraitScaleComponent);
+
+export interface ExerciseScaleProps {
+  readonly minutes: number | null;
+}
+
+/** Upper bound of the observed `exercise_minutes` range, used for the bar. */
+const EXERCISE_MAX_MINUTES = 120;
+
+function ExerciseScaleComponent({ minutes }: ExerciseScaleProps): React.ReactElement {
+  const theme = useTheme();
+  const styles = useMemo(() => createTraitStyles(theme), [theme]);
+
+  const hasValue = minutes !== null;
+  const ratio = hasValue ? Math.max(0, Math.min(1, minutes / EXERCISE_MAX_MINUTES)) : 0;
+  // RN types percentages as `${number}%`, so build it as a typed literal.
+  const fillWidth: `${number}%` = `${Math.round(ratio * 100)}%`;
+
+  return (
+    <View
+      style={styles.container}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={
+        hasValue
+          ? `Daily exercise, ${formatExerciseMinutes(minutes)}`
+          : 'Daily exercise, not recorded'
+      }
+    >
+      <View style={styles.header}>
+        <Text style={styles.label}>Daily exercise</Text>
+        <Text style={[styles.value, !hasValue && styles.valueMuted]}>
+          {formatExerciseMinutes(minutes)}
+        </Text>
+      </View>
+
+      <View style={styles.continuousTrack} importantForAccessibility="no-hide-descendants">
+        <View style={[styles.continuousFill, { width: fillWidth }]} />
+      </View>
+    </View>
+  );
+}
+
+export const ExerciseScale = memo(ExerciseScaleComponent);
+
+function createTraitStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    container: {
+      marginBottom: theme.spacing.lg,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    label: {
+      fontSize: theme.typography.body.fontSize,
+      color: theme.colors.textPrimary,
+      fontWeight: '500',
+      flexShrink: 1,
+    },
+    value: {
+      fontSize: theme.typography.label.fontSize,
+      fontWeight: '700',
+      color: theme.colors.accentText,
+      marginLeft: theme.spacing.sm,
+    },
+    valueMuted: {
+      color: theme.colors.textMuted,
+      fontWeight: '400',
+    },
+    track: {
+      flexDirection: 'row',
+      gap: theme.spacing.xs,
+    },
+    segment: {
+      flex: 1,
+      height: 8,
+      borderRadius: theme.radius.sm,
+    },
+    segmentFilled: {
+      backgroundColor: theme.colors.accent,
+    },
+    segmentEmpty: {
+      backgroundColor: theme.colors.border,
+    },
+    continuousTrack: {
+      height: 8,
+      borderRadius: theme.radius.sm,
+      backgroundColor: theme.colors.border,
+      overflow: 'hidden',
+    },
+    continuousFill: {
+      height: '100%',
+      borderRadius: theme.radius.sm,
+      backgroundColor: theme.colors.accent,
+    },
+  });
+}
 
 const TABS = ['Overview', 'Traits', 'Gallery'] as const;
 type TabName = (typeof TABS)[number];

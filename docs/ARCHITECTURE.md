@@ -15,22 +15,19 @@ flowchart TD
     subgraph APILayer["API layer (src/api)"]
         Client["client.ts<br/>timeout, retry, backoff"]
         Parsers["parsers.ts<br/>unknown -> domain, total"]
-        Merge["breedsApi.ts<br/>page merge + de-dupe"]
+        Merge["dogApi.ts<br/>page merge + de-dupe"]
     end
 
-    subgraph SyncLayer["Services (src/services)"]
-        Sync["syncService.ts<br/>orchestration"]
-        Net["networkService.ts<br/>connectivity"]
-        ImgCache["imageCacheService.ts<br/>variant + cache policy"]
-    end
+    Sync["syncService.ts<br/>orchestration"]
+    Net["useOfflineSync.ts<br/>connectivity + launch"]
 
     subgraph DB["Persistence (src/database)"]
-        Repos["repositories<br/>breed / group / sync"]
+        Repos["repository.ts<br/>breeds / groups / sync state"]
         SQLite[("SQLite<br/>breeds, groups,<br/>breed_images, sync_metadata")]
     end
 
     subgraph State["State (src/store)"]
-        Slices["slices<br/>breeds / filters / sync"]
+        Slices["index.ts<br/>breeds / filters / sync slices"]
         Selectors["selectors.ts<br/>memoised filter + group"]
     end
 
@@ -45,7 +42,6 @@ flowchart TD
     SQLite -->|hydrate on launch| Slices
     Repos -->|read| Slices
     Slices --> Selectors --> UI
-    ImgCache --> UI
     UI -->|pull to refresh / retry| Sync
 ```
 
@@ -91,7 +87,7 @@ the user what they actually have.
 | Failure | Behaviour |
 |---|---|
 | Page 1 fails | Sync aborts. **Nothing is written.** Cache and its timestamp are preserved, banner shows the error with a Retry. |
-| Pages 2-6 partially fail | Successful pages are written. Status is `partial`, failed page numbers are recorded, banner names them. `lastFullSyncAt` does **not** advance. |
+| Pages 2-6 partially fail | Successful pages are written. Status is `partial`, failed page numbers are recorded, banner names them. |
 | Groups fail, breeds succeed | Breeds are written. Status is `partial`; sections fall back to a readable label. |
 | API returns 0 usable breeds | Treated as an **error**, not a wipe. Nothing is written. |
 | One record is malformed | That record is skipped and counted; the other 282 are kept. |
@@ -194,7 +190,7 @@ when hydrating from the cache, where the cache genuinely is the full picture.
 
 `requestJson` returns `unknown` by design — narrowing is the parsers' job, so
 no caller can accidentally trust an unvalidated payload. There is no `any` in
-the codebase; the boundary is crossed with type guards in `src/utils/guards.ts`.
+the codebase; the boundary is crossed with type guards at the top of `src/api/parsers.ts`.
 
 Errors are classified into `network | timeout | http | parse | aborted`, each
 carrying a `retryable` verdict. Transport failures, 5xx, 408 and 429 are

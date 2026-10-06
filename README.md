@@ -19,7 +19,7 @@ npm start                # Metro, in its own terminal
 npm run ios              # or: npm run android
 ```
 
-`npm test` runs the suite (211 tests). `npm run typecheck` runs `tsc --noEmit`, and
+`npm test` runs the suite (196 tests). `npm run typecheck` runs `tsc --noEmit`, and
 `npm run lint` / `npm run format:check` run ESLint and Prettier, as CI does.
 
 **Requirements:** Node 22.11+, and Xcode + CocoaPods (iOS) or Android Studio +
@@ -117,9 +117,9 @@ are JSON.
 
 **Why filter in a selector, not in SQL?** At 283 rows a memoised
 `createSelector` pass over pre-derived fields takes well under a frame, with no
-async hop and no stale-result race. The SQL filter (`buildBreedWhereClause`
-over indexed columns) is built and tested, ready to replace the selector once
-the dataset outgrows memory. See [DECISIONS.md §4](docs/DECISIONS.md).
+async hop and no stale-result race. Every facet is already an indexed column,
+so moving the filter into SQL once the dataset outgrows memory is a query
+change, not a migration. See [DECISIONS.md §4](docs/DECISIONS.md).
 
 **Why React Navigation?** Native stack navigator with a single
 `RootStackParamList` as the source of truth, so a param rename is a compile
@@ -197,7 +197,7 @@ Measured figures and the commands that produced them are in
 | Android JS bundle (release) | **1.43 MB** minified JS / 2.09 MB Hermes bytecode, 909 modules (minified was 2.38 MB before removing unused dependencies) |
 | Full sync, 6 pages / 283 breeds | **~4.4s** (concurrent), 0 duplicates, 0 parse failures |
 | Partial failure (2 of 6 pages down) | **187 breeds recovered**, cache preserved |
-| Test suite | **211 tests, 10 suites** |
+| Test suite | **196 tests, 8 suites** |
 
 Verified running on **both platforms**: iOS 26 simulator (iPhone 17 Pro) and
 Android emulator (API 36), from the same source with no platform branching.
@@ -249,7 +249,7 @@ as tappable links:
 ## Testing
 
 ```bash
-npm test                 # 211 tests, 10 suites
+npm test                 # 196 tests, 8 suites
 npm run test:coverage
 npm run typecheck        # tsc --noEmit, strict
 npm run lint             # ESLint (@react-native config), zero warnings allowed
@@ -258,16 +258,14 @@ npm run format:check     # Prettier
 
 | Suite | Covers |
 |---|---|
-| `parsers` | Malformed payloads, sparse records, null-vs-zero traits, attribution retention |
+| `parsers` | Malformed payloads, sparse records, null-vs-zero traits, attribution retention, size-band and coat-category boundaries |
 | `pagination` | 6-page merge, duplicate collapse, partial-page survival, page-1 failure |
 | `client` | Retry policy, full-jitter backoff, timeout vs cancellation, error classification |
 | `syncService` | Partial failure, cache preservation, empty-response guard, concurrency |
-| `database` | SQL builder, LIKE escaping, row mapping, corrupt-JSON tolerance |
+| `database` | Row mapping, corrupt-JSON tolerance, migrations |
 | `upsert` | Shipped SQL against a **real** SQLite engine (`sql.js`) |
 | `filters` | Search, every facet, composed filters, grouping, selector memoisation |
-| `derive` | Size-band and coat-category boundaries |
-| `ui` | Trait scales, banner decision table, formatters, relative time |
-| `url` | External-link allowlist: only http(s) leaves the app |
+| `ui` | Trait scales, banner decision table, formatters, relative time, external-link allowlist |
 
 The most load-bearing test is in `upsert.test.ts`: it runs the shipped
 migrations and upsert statement against a real SQL engine and asserts that a
@@ -279,19 +277,29 @@ partial sync mentioning 1 of 3 breeds leaves the other 2 intact.
 
 ```
 src/
-├── api/          client, parsers, breeds/groups endpoints, typed errors
-├── components/   list row, gallery, filter sheet, trait scales, banner, states
-├── database/     connection, migrations, row mappers, repositories/
-├── hooks/        useOfflineSync, useBreedDetails, useDebouncedSearch
-├── navigation/   typed param list, root navigator
-├── screens/      BreedListScreen, BreedDetailsScreen
-├── services/     syncService, networkService, imageCacheService
-├── store/        slices/ (breeds, filters, sync), memoised selectors
-├── theme/        tokens, light/dark palettes, provider
-├── types/        api (wire), domain, sync
-├── utils/        guards, derive, format, text, url
-└── __tests__/    10 suites
-docs/             APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · SCREENSHOTS
+├── api/
+│   ├── client.ts       config, typed errors, fetch with timeout + retry
+│   ├── dogApi.ts       breeds (all pages, merged) and groups endpoints
+│   └── parsers.ts      unknown JSON -> domain objects, guards, derived facets
+├── database/
+│   ├── database.ts     connection + migrations (schema)
+│   └── repository.ts   reads/writes for breeds, groups, sync state
+├── store/
+│   ├── index.ts        breeds / filters / sync slices + store
+│   └── selectors.ts    memoised filtering and grouping
+├── hooks/
+│   ├── useOfflineSync.ts   launch from cache, connectivity, background sync
+│   └── useBreedDetails.ts  one breed: cache first, then network refresh
+├── screens/            BreedListScreen, BreedDetailsScreen (+ trait scales)
+├── components/         list row, search bar, filter sheet, gallery,
+│                       sync banner, loading/empty states + error boundary
+├── syncService.ts      API -> SQLite sync, never makes the cache worse
+├── navigation.tsx      typed routes + stack
+├── theme.tsx           tokens, light/dark palettes, theme context
+├── types.ts            domain model + sync state
+├── format.ts           display formatting, safe external URLs
+└── __tests__/          8 suites
+docs/                   APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · SCREENSHOTS
 ```
 
 ---
@@ -301,14 +309,14 @@ docs/             APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · SCREEN
 - TypeScript **strict**, plus `noUncheckedIndexedAccess`, `noUnusedLocals`,
   `noUnusedParameters`, `noImplicitOverride`.
 - **No `any`.** Untrusted JSON enters as `unknown` and is narrowed by type
-  guards in `src/utils/guards.ts`.
+  guards at the top of `src/api/parsers.ts`.
 - Business logic and database access stay out of UI components.
 - Error boundaries around the app root, each screen, and the gallery
-  separately. Crashes go through one seam, `src/services/crashReporter.ts`,
+  separately. Crashes go through one seam, `reportError` in `src/components/States.tsx`,
   where Sentry or Crashlytics plugs in; raw error text is shown only in
   development builds.
 - API-supplied links are untrusted: only `http(s)` URLs reach
-  `Linking.openURL` (`src/utils/url.ts`).
+  `Linking.openURL` (`toSafeExternalUrl` in `src/format.ts`).
 - CI (`.github/workflows/ci.yml`) runs lint, format check, typecheck, tests
   and a release-mode Android bundle on every pull request.
 - Accessibility: labelled controls, `accessibilityRole`/`State` on interactive

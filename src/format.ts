@@ -1,11 +1,9 @@
 /**
- * Display formatting.
- *
- * Every helper here has one job: never let a null reach the screen as
- * "undefined", "null" or an empty gap. Callers get a real em-dash placeholder.
+ * Display helpers. Every nullable field renders through these, so the UI shows
+ * an em-dash instead of "null" or "undefined".
  */
 
-import type { Origin, Range } from '@/types/domain';
+import type { Origin, Range } from '@/types';
 
 export const UNKNOWN_PLACEHOLDER = '—';
 
@@ -101,4 +99,26 @@ export function formatRelativeTime(timestamp: number | null, now: number = Date.
  */
 export function formatGroupName(name: string): string {
   return name.replace(/\s+(Group|Class)$/u, '');
+}
+
+/** Initials for the thumbnail placeholder shown before an image loads. */
+export function initialsFor(name: string): string {
+  const words = name
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => word.length > 0);
+  const first = words[0];
+  if (first === undefined) return '?';
+  const second = words[1];
+  if (second === undefined) return first.slice(0, 2).toUpperCase();
+  return `${first.charAt(0)}${second.charAt(0)}`.toUpperCase();
+}
+
+const WEB_URL = /^https?:\/\/[^\s/?#]+[^\s]*$/iu;
+
+/** Returns the trimmed URL when it is an http(s) link, otherwise null. */
+export function toSafeExternalUrl(raw: string | null): string | null {
+  if (raw === null) return null;
+  const trimmed = raw.trim();
+  return WEB_URL.test(trimmed) ? trimmed : null;
 }

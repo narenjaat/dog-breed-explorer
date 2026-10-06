@@ -5,8 +5,9 @@
  * for CC-BY material, not decoration, so they are rendered under each slide
  * rather than dropped.
  *
- * Only the active slide is upgraded to the `large` variant (see
- * `imageCacheService`), which keeps memory flat while swiping.
+ * Only the active slide loads the `large` variant; the rest stay on `medium`,
+ * which keeps memory flat while swiping. Slides use `web` caching (HTTP cache
+ * headers) so a long swipe session does not pin every image to disk.
  */
 
 import React, { memo, useCallback, useMemo, useState } from 'react';
@@ -22,12 +23,11 @@ import {
 import type { ListRenderItemInfo, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 
-import { resolveImageRequest } from '@/services/imageCacheService';
-import { useTheme } from '@/theme/ThemeProvider';
+import { useTheme } from '@/theme';
 import type { Theme } from '@/theme';
-import type { BreedImage } from '@/types/domain';
+import type { BreedImage } from '@/types';
 import { EmptyState } from '@/components/States';
-import { toSafeExternalUrl } from '@/utils/url';
+import { toSafeExternalUrl } from '@/format';
 
 export interface BreedGalleryProps {
   readonly images: readonly BreedImage[];
@@ -121,8 +121,7 @@ function SlideComponent({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [failed, setFailed] = useState(false);
 
-  // Active slide gets `large`; neighbours stay on `medium`.
-  const request = resolveImageRequest(image, isActive ? 'galleryActive' : 'gallery');
+  const uri = isActive ? (image.largeUrl ?? image.mediumUrl) : image.mediumUrl;
 
   const handleError = useCallback(() => {
     setFailed(true);
@@ -131,13 +130,13 @@ function SlideComponent({
   return (
     <View style={[styles.slide, { width }]}>
       <View style={styles.imageFrame}>
-        {failed || request.uri === null ? (
+        {failed || uri === null ? (
           <View style={styles.imageFallback}>
             <Text style={styles.imageFallbackText}>Image unavailable</Text>
           </View>
         ) : (
           <FastImage
-            source={{ uri: request.uri, cache: request.cachePolicy }}
+            source={{ uri, cache: FastImage.cacheControl.web }}
             style={styles.image}
             resizeMode={FastImage.resizeMode.cover}
             transition={FastImage.transition.fade}

@@ -12,10 +12,10 @@ import initSqlJs from 'sql.js';
 import type { Database } from 'sql.js';
 
 import { parseBreed } from '@/api/parsers';
-import { MIGRATIONS } from '@/database/migrations';
-import { breedToBindValues } from '@/database/rowMappers';
-import type { SQLiteBindValue } from '@/database/rowMappers';
-import type { Breed } from '@/types/domain';
+import { MIGRATIONS } from '@/database/database';
+import { breedToBindValues } from '@/database/repository';
+import type { SQLiteBindValue } from '@/database/repository';
+import type { Breed } from '@/types';
 import { makeBreedWithWeight } from '@/__tests__/fixtures';
 
 /**

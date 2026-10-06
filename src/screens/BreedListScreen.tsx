@@ -20,13 +20,10 @@ import { EmptyState, ListSkeleton } from '@/components/States';
 import { FilterSheet } from '@/components/FilterSheet';
 import { SearchBar } from '@/components/SearchBar';
 import { SyncBanner } from '@/components/SyncBanner';
-import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
-import { useAppDispatch, useAppSelector } from '@/store';
+import { useAppDispatch, useAppSelector, allFiltersCleared } from '@/store';
 import {
-  selectActiveFilterCount,
   selectBreedTotal,
-  selectFilteredCount,
   selectSearchQuery,
   selectGroupedBreeds,
   selectHasActiveFilters,
@@ -35,13 +32,11 @@ import {
   selectSyncState,
 } from '@/store/selectors';
 import type { BreedSection } from '@/store/selectors';
-import { allFiltersCleared } from '@/store/slices/filtersSlice';
-import { BREED_ROW_HEIGHT, SECTION_HEADER_HEIGHT } from '@/theme';
+import { BREED_ROW_HEIGHT, SECTION_HEADER_HEIGHT, useTheme } from '@/theme';
 import type { Theme } from '@/theme';
-import { useTheme } from '@/theme/ThemeProvider';
-import type { Breed } from '@/types/domain';
-import type { BreedListScreenProps } from '@/navigation/types';
-import { formatGroupName } from '@/utils/format';
+import type { Breed } from '@/types';
+import type { BreedListScreenProps } from '@/navigation';
+import { formatGroupName } from '@/format';
 
 export function BreedListScreen({ navigation }: BreedListScreenProps): React.ReactElement {
   const theme = useTheme();
@@ -53,16 +48,13 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
 
   const sections = useAppSelector(selectGroupedBreeds);
   const searchQuery = useAppSelector(selectSearchQuery);
-  const filteredCount = useAppSelector(selectFilteredCount);
   const totalCount = useAppSelector(selectBreedTotal);
-  const activeFilterCount = useAppSelector(selectActiveFilterCount);
   const hasActiveFilters = useAppSelector(selectHasActiveFilters);
   const isHydrating = useAppSelector(selectIsHydrating);
   const isOnline = useAppSelector(selectIsOnline);
   const sync = useAppSelector(selectSyncState);
 
   const { refresh } = useOfflineSync();
-  const search = useDebouncedSearch();
 
   // --- Stable callbacks ---------------------------------------------------
 
@@ -164,24 +156,8 @@ export function BreedListScreen({ navigation }: BreedListScreenProps): React.Rea
   );
 
   const listHeader = useMemo(
-    () => (
-      <SearchBar
-        value={search.value}
-        onChangeText={search.onChangeText}
-        onClear={search.onClear}
-        onOpenFilters={handleOpenFilters}
-        activeFilterCount={activeFilterCount}
-        resultCount={filteredCount}
-      />
-    ),
-    [
-      search.value,
-      search.onChangeText,
-      search.onClear,
-      handleOpenFilters,
-      activeFilterCount,
-      filteredCount,
-    ],
+    () => <SearchBar onOpenFilters={handleOpenFilters} />,
+    [handleOpenFilters],
   );
 
   const emptyComponent = useMemo(() => {

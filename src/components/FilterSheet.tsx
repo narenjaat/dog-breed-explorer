@@ -9,9 +9,9 @@
 import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useAppDispatch, useAppSelector } from '@/store';
-import { selectAllGroups, selectFilteredCount, selectFilters } from '@/store/selectors';
 import {
+  useAppDispatch,
+  useAppSelector,
   allFiltersCleared,
   coatCategoryToggled,
   groupToggled,
@@ -19,18 +19,13 @@ import {
   sizeBandToggled,
   traitKeyToggled,
   traitMinScoreChanged,
-} from '@/store/slices/filtersSlice';
-import { useTheme } from '@/theme/ThemeProvider';
+} from '@/store';
+import { selectAllGroups, selectFilteredCount, selectFilters } from '@/store/selectors';
+import { useTheme, MIN_TOUCH_TARGET } from '@/theme';
 import type { Theme } from '@/theme';
-import { MIN_TOUCH_TARGET } from '@/theme';
-import type { CoatCategory, SizeBand } from '@/types/domain';
-import {
-  COAT_CATEGORIES,
-  FILTERABLE_TRAIT_KEYS,
-  SIZE_BANDS,
-  TRAIT_SCORE_MAX,
-} from '@/types/domain';
-import { formatGroupName, humanizeKey } from '@/utils/format';
+import type { CoatCategory, SizeBand } from '@/types';
+import { COAT_CATEGORIES, FILTERABLE_TRAIT_KEYS, SIZE_BANDS, TRAIT_SCORE_MAX } from '@/types';
+import { formatGroupName, humanizeKey } from '@/format';
 
 export interface FilterSheetProps {
   readonly visible: boolean;

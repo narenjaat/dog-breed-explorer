@@ -1,12 +1,135 @@
 /**
- * HTTP client: timeout, typed errors, and retry with exponential backoff.
+ * HTTP client: config, typed errors, timeout, and retry with backoff.
  *
- * Returns `unknown` on purpose — narrowing is the parsers' job, so no caller
+ * Returns `unknown` on purpose; narrowing is the parsers' job, so no caller
  * can accidentally trust an unvalidated payload.
  */
 
-import { API_CONFIG } from '@/api/config';
-import { ApiError, toApiError } from '@/api/errors';
+function readPositiveInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+function readNonNegativeInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return parsed;
+}
+
+function readUrl(raw: string | undefined, fallback: string): string {
+  if (raw === undefined) return fallback;
+  const trimmed = raw.trim().replace(/\/+$/u, '');
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+export const API_CONFIG = {
+  baseUrl: readUrl(process.env['DOG_API_BASE_URL'], 'https://dogapi.dog/api/v2'),
+  timeoutMs: readPositiveInt(process.env['DOG_API_TIMEOUT_MS'], 15_000),
+  maxRetries: readNonNegativeInt(process.env['DOG_API_MAX_RETRIES'], 3),
+  /**
+   * The API defaults to 30 records/page (10 pages). Requesting 48 yields the
+   * 6 pages the brief describes, and fewer round trips for the same 283 rows.
+   */
+  pageSize: readPositiveInt(process.env['DOG_API_PAGE_SIZE'], 48),
+  /** Base delay for exponential backoff: 400ms, 800ms, 1600ms (+ jitter). */
+  retryBaseDelayMs: 400,
+  retryMaxDelayMs: 8_000,
+  /** Hard ceiling on pagination, guarding against a runaway `next` cursor. */
+  maxPages: 50,
+} as const;
+
+export type ApiErrorKind =
+  | 'network' // request never completed (offline, DNS, TLS)
+  | 'timeout' // aborted by our own deadline
+  | 'http' // completed with a non-2xx status
+  | 'parse' // 2xx but the body was not usable JSON / wrong shape
+  | 'aborted'; // cancelled by the caller (screen unmounted, sync superseded)
+
+export class ApiError extends Error {
+  readonly kind: ApiErrorKind;
+  readonly status: number | null;
+  readonly url: string | null;
+  override readonly cause: unknown;
+
+  constructor(
+    kind: ApiErrorKind,
+    message: string,
+    options: { status?: number | null; url?: string | null; cause?: unknown } = {},
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.kind = kind;
+    this.status = options.status ?? null;
+    this.url = options.url ?? null;
+    this.cause = options.cause;
+    // Required for `instanceof` to work when targeting ES5-era output.
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+
+  /**
+   * Whether retrying with backoff could plausibly succeed.
+   *
+   * 408 (timeout) and 429 (rate limited) are retryable; so is any 5xx.
+   * Other 4xx are caller errors and are not.
+   */
+  get retryable(): boolean {
+    switch (this.kind) {
+      case 'network':
+      case 'timeout':
+        return true;
+      case 'http': {
+        const status = this.status;
+        if (status === null) return true;
+        if (status === 408 || status === 429) return true;
+        return status >= 500 && status < 600;
+      }
+      case 'parse':
+      case 'aborted':
+        return false;
+      default:
+        return false;
+    }
+  }
+}
+
+export function isApiError(value: unknown): value is ApiError {
+  return value instanceof ApiError;
+}
+
+/** Wraps an unknown thrown value into an ApiError for uniform handling. */
+export function toApiError(value: unknown, url: string | null): ApiError {
+  if (isApiError(value)) return value;
+  if (value instanceof Error) {
+    if (value.name === 'AbortError') {
+      return new ApiError('aborted', 'Request was cancelled', { url, cause: value });
+    }
+    return new ApiError('network', value.message, { url, cause: value });
+  }
+  return new ApiError('network', 'Unknown network failure', { url, cause: value });
+}
+
+/** A short, user-facing description. Never leaks a stack trace into the UI. */
+export function describeApiError(error: ApiError): string {
+  switch (error.kind) {
+    case 'network':
+      return 'No connection to the Dog API.';
+    case 'timeout':
+      return 'The request took too long to respond.';
+    case 'http':
+      return error.status === null
+        ? 'The Dog API returned an error.'
+        : `The Dog API returned HTTP ${String(error.status)}.`;
+    case 'parse':
+      return 'The Dog API returned data in an unexpected format.';
+    case 'aborted':
+      return 'The request was cancelled.';
+    default:
+      return 'Something went wrong talking to the Dog API.';
+  }
+}
 
 export interface RequestOptions {
   /** Query parameters; undefined values are omitted. */

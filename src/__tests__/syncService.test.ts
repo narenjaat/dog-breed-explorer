@@ -13,26 +13,18 @@ import { makeBreedWithWeight, makeCollectionResponse, makeGroup } from '@/__test
 
 const mockUpsertBreeds = jest.fn(async () => undefined);
 const mockUpsertGroups = jest.fn(async () => undefined);
-const mockCountBreeds = jest.fn(async () => 0);
 const mockGetSyncState = jest.fn();
 const mockSaveSyncState = jest.fn(async () => undefined);
 
-jest.mock('@/database/repositories/breedRepository', () => ({
+jest.mock('@/database/repository', () => ({
   upsertBreeds: (...args: readonly unknown[]) => mockUpsertBreeds(...(args as [])),
-  countBreeds: () => mockCountBreeds(),
-}));
-
-jest.mock('@/database/repositories/groupRepository', () => ({
   upsertGroups: (...args: readonly unknown[]) => mockUpsertGroups(...(args as [])),
-}));
-
-jest.mock('@/database/repositories/syncRepository', () => ({
   getSyncState: () => mockGetSyncState() as unknown,
   saveSyncState: (...args: readonly unknown[]) => mockSaveSyncState(...(args as [])),
 }));
 
-import { buildPartialMessage, synchronize } from '@/services/syncService';
-import { INITIAL_SYNC_STATE } from '@/types/sync';
+import { buildPartialMessage, synchronize } from '@/syncService';
+import { INITIAL_SYNC_STATE } from '@/types';
 
 const originalFetch = globalThis.fetch;
 
@@ -97,7 +89,6 @@ function jsonResponse(body: unknown): Response {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetSyncState.mockResolvedValue(INITIAL_SYNC_STATE);
-  mockCountBreeds.mockResolvedValue(0);
 });
 
 afterEach(() => {
@@ -111,7 +102,6 @@ describe('synchronize — success', () => {
     const result = await synchronize();
 
     expect(result.status).toBe('success');
-    expect(result.breedCount).toBe(30);
     expect(result.failedPages).toEqual([]);
     expect(mockUpsertBreeds).toHaveBeenCalledTimes(1);
 
@@ -148,10 +138,11 @@ describe('synchronize — partial failure', () => {
     const result = await synchronize();
 
     expect(result.status).toBe('partial');
-    // Page 2's 10 breeds are lost; the other 20 are saved.
-    expect(result.breedCount).toBe(20);
     expect(result.failedPages).toEqual([2]);
     expect(mockUpsertBreeds).toHaveBeenCalledTimes(1);
+    // Page 2's 10 breeds are lost; the other 20 are saved.
+    const [saved] = mockUpsertBreeds.mock.calls[0] as unknown as [readonly unknown[]];
+    expect(saved).toHaveLength(20);
   });
 
   it('explains which pages failed in the banner message', async () => {
@@ -160,16 +151,6 @@ describe('synchronize — partial failure', () => {
 
     expect(result.error).toContain('page 2');
     expect(result.error).toContain('cached data');
-  });
-
-  it('does not advance the full-sync marker on a partial run', async () => {
-    mockGetSyncState.mockResolvedValue({ ...INITIAL_SYNC_STATE, lastFullSyncAt: 1000 });
-    mockApi({ pageCount: 3, perPage: 10, failPages: [3] });
-
-    await synchronize();
-
-    const [state] = mockSaveSyncState.mock.calls[0] as unknown as [{ lastFullSyncAt: number }];
-    expect(state.lastFullSyncAt).toBe(1000);
   });
 
   it('still saves breeds when only the groups request fails', async () => {
@@ -186,7 +167,6 @@ describe('synchronize — partial failure', () => {
 describe('synchronize — total failure preserves the cache', () => {
   it('writes nothing when the first page fails', async () => {
     mockApi({ failPages: [1] });
-    mockCountBreeds.mockResolvedValue(283);
 
     const result = await synchronize();
 
@@ -195,21 +175,10 @@ describe('synchronize — total failure preserves the cache', () => {
     expect(mockUpsertBreeds).not.toHaveBeenCalled();
   });
 
-  it('reports the cached count and that cached data is in use', async () => {
-    mockApi({ failPages: [1] });
-    mockCountBreeds.mockResolvedValue(283);
-
-    const result = await synchronize();
-
-    expect(result.breedCount).toBe(283);
-    expect(result.usedCache).toBe(true);
-  });
-
   it('keeps the previous sync timestamp when a run fails', async () => {
     mockGetSyncState.mockResolvedValue({
       ...INITIAL_SYNC_STATE,
       lastSyncedAt: 5_000,
-      lastFullSyncAt: 5_000,
       status: 'success',
     });
     mockApi({ failPages: [1] });
@@ -223,21 +192,12 @@ describe('synchronize — total failure preserves the cache', () => {
 
   it('treats an all-empty response as an error rather than wiping the cache', async () => {
     mockApi({ emptyBreeds: true, pageCount: 1 });
-    mockCountBreeds.mockResolvedValue(283);
 
     const result = await synchronize();
 
     expect(result.status).toBe('error');
     expect(mockUpsertBreeds).not.toHaveBeenCalled();
     expect(result.error).toContain('no usable breed records');
-  });
-
-  it('reports no cached data when the device has none', async () => {
-    mockApi({ failPages: [1] });
-    mockCountBreeds.mockResolvedValue(0);
-
-    const result = await synchronize();
-    expect(result.usedCache).toBe(false);
   });
 });
 

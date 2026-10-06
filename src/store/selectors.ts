@@ -10,8 +10,8 @@
 import { createSelector } from '@reduxjs/toolkit';
 
 import type { RootState } from '@/store';
-import { breedsAdapter, groupsAdapter } from '@/store/slices/breedsSlice';
-import type { Breed, BreedGroup } from '@/types/domain';
+import { breedsAdapter, groupsAdapter } from '@/store';
+import type { Breed, BreedGroup } from '@/types';
 
 const breedSelectors = breedsAdapter.getSelectors<RootState>((state) => state.breeds.breeds);
 const groupSelectors = groupsAdapter.getSelectors<RootState>((state) => state.breeds.groups);

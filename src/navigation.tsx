@@ -1,21 +1,45 @@
 /**
- * Root navigation stack.
+ * Navigation: the typed param list and the root stack.
  *
- * Two screens, both typed through `RootStackParamList`, so navigation params
- * are checked at compile time.
+ * `RootStackParamList` is the single source of truth, so a param rename is a
+ * compile error at every call site rather than a runtime undefined.
  */
 
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import type { Theme as NavigationTheme } from '@react-navigation/native';
-import { DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/States';
 import { BreedDetailsScreen } from '@/screens/BreedDetailsScreen';
 import { BreedListScreen } from '@/screens/BreedListScreen';
-import { useTheme } from '@/theme/ThemeProvider';
-import type { RootStackParamList } from '@/navigation/types';
+import { useTheme } from '@/theme';
+
+export type RootStackParamList = {
+  BreedList: undefined;
+  BreedDetails: {
+    readonly breedId: string;
+    /** Passed so the header can render before the breed is read from cache. */
+    readonly breedName: string;
+  };
+};
+
+export type RootStackScreenProps<TRoute extends keyof RootStackParamList> = NativeStackScreenProps<
+  RootStackParamList,
+  TRoute
+>;
+
+export type BreedListScreenProps = RootStackScreenProps<'BreedList'>;
+export type BreedDetailsScreenProps = RootStackScreenProps<'BreedDetails'>;
+
+/**
+ * Makes `useNavigation()` type-safe app-wide without per-call generics.
+ */
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

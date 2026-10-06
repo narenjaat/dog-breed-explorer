@@ -1,17 +1,20 @@
 /**
- * Breeds endpoints, including assembly of the paginated collection.
+ * Dog API endpoints: breeds (paginated) and groups.
  *
- * The important behaviour lives in `fetchAllBreeds`: it merges every page into
- * one de-duplicated dataset and — critically — returns successfully even when
- * some pages failed, reporting which ones. Losing page 4 should cost the user
- * 48 breeds, not all 283.
+ * `fetchAllBreeds` merges every page into one de-duplicated dataset and
+ * returns successfully even when some pages failed, reporting which ones.
+ * Losing page 4 should cost the user 48 breeds, not all 283.
  */
 
-import { requestJson } from '@/api/client';
-import { API_CONFIG } from '@/api/config';
-import { ApiError, toApiError } from '@/api/errors';
-import { parseBreed, parseCollection, parsePagination, parseSingle } from '@/api/parsers';
-import type { Breed } from '@/types/domain';
+import { requestJson, API_CONFIG, ApiError, toApiError } from '@/api/client';
+import {
+  parseBreed,
+  parseCollection,
+  parsePagination,
+  parseSingle,
+  parseGroup,
+} from '@/api/parsers';
+import type { Breed, BreedGroup } from '@/types';
 
 export interface BreedPageResult {
   readonly pageNumber: number;
@@ -199,4 +202,18 @@ export function mergeBreedPages(pages: readonly BreedPageResult[]): {
   }
 
   return { breeds: [...byId.values()], duplicatesDropped };
+}
+
+export interface GroupsResult {
+  readonly groups: readonly BreedGroup[];
+  readonly skipped: number;
+}
+
+export async function fetchGroups(options: FetchOptions = {}): Promise<GroupsResult> {
+  const payload = await requestJson('/groups', {
+    signal: options.signal,
+    retryBaseDelayMs: options.retryBaseDelayMs,
+  });
+  const { items, skipped } = parseCollection(payload, parseGroup);
+  return { groups: items, skipped };
 }

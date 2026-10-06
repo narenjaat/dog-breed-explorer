@@ -64,10 +64,8 @@ not linger.
 ## 4. Filtering runs in a memoised selector; the SQL path is ready for scale
 
 **Decision.** At 283 breeds, the list filters in JS inside `createSelector`
-(`selectFilteredBreeds` in `src/store/selectors.ts`). The SQL equivalent,
-`buildBreedWhereClause` plus the indexed scalar columns, is built and unit
-tested but not wired to the list: `queryBreeds()` is called without filters
-to hydrate Redux.
+(`selectFilteredBreeds` in `src/store/selectors.ts`). SQLite only hydrates
+Redux on launch and after a sync (`getAllBreeds()`).
 
 **Alternatives.** Running every filter change as a SQLite query.
 
@@ -78,9 +76,9 @@ wins" handling to avoid a stale result overwriting a newer one, with no
 measurable gain at this size.
 
 **When to switch.** At thousands of rows, or when the full dataset should no
-longer be held in memory, the list reads `queryBreeds(filters)` instead. The
-schema already supports it, because every filterable facet is an indexed
-scalar column.
+longer be held in memory, filtering moves into a `WHERE` clause. The schema
+already supports it, because every filterable facet is an indexed scalar
+column, so it is a query change rather than a migration.
 
 **Removed: TanStack Query.** An earlier draft planned React Query for the
 detail request. The detail screen instead uses `useBreedDetails`, which reads

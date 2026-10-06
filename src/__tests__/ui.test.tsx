@@ -7,10 +7,9 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-
-import { ExerciseScale, TraitScale } from '@/components/TraitScale';
+import { ExerciseScale, TraitScale } from '@/screens/BreedDetailsScreen';
 import { resolveBannerContent } from '@/components/SyncBanner';
-import { ThemeProvider } from '@/theme/ThemeProvider';
+import { ThemeProvider } from '@/theme';
 import {
   UNKNOWN_PLACEHOLDER,
   formatExerciseMinutes,
@@ -22,8 +21,9 @@ import {
   formatRange,
   formatRelativeTime,
   humanizeKey,
-} from '@/utils/format';
-import { initialsFor } from '@/utils/text';
+  initialsFor,
+  toSafeExternalUrl,
+} from '@/format';
 
 /**
  * RNTL v14 renders asynchronously (React 19 concurrent mode), so `render`
@@ -283,5 +283,38 @@ describe('initialsFor', () => {
 
   it('does not crash on an empty name', () => {
     expect(initialsFor('   ')).toBe('?');
+  });
+});
+
+describe('toSafeExternalUrl', () => {
+  it.each([
+    'https://commons.wikimedia.org/wiki/File:Dog.jpg',
+    'http://creativecommons.org/licenses/by-sa/4.0/',
+    'HTTPS://example.com',
+  ])('allows web link %s', (url) => {
+    expect(toSafeExternalUrl(url)).toBe(url);
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(toSafeExternalUrl('  https://example.com/a  ')).toBe('https://example.com/a');
+  });
+
+  it.each([
+    'intent://scan/#Intent;scheme=zxing;end',
+    // eslint-disable-next-line no-script-url -- the hostile input under test
+    'javascript:alert(1)',
+    'tel:+911234567890',
+    'file:///data/data/app/db.sqlite',
+    'otherapp://open?token=abc',
+    'https://',
+    'https:// example.com',
+    'example.com',
+    '',
+  ])('rejects %p', (url) => {
+    expect(toSafeExternalUrl(url)).toBeNull();
+  });
+
+  it('passes null through', () => {
+    expect(toSafeExternalUrl(null)).toBeNull();
   });
 });

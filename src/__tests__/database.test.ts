@@ -7,93 +7,10 @@
  */
 
 import { parseBreed } from '@/api/parsers';
-import { buildBreedWhereClause, escapeLikePattern } from '@/database/repositories/breedRepository';
-import { mapBreedRow, mapImageRow } from '@/database/rowMappers';
-import type { BreedImageRow, BreedRow } from '@/database/rowMappers';
-import { LATEST_SCHEMA_VERSION, MIGRATIONS } from '@/database/migrations';
+import { mapBreedRow, mapImageRow } from '@/database/repository';
+import type { BreedImageRow, BreedRow } from '@/database/repository';
+import { LATEST_SCHEMA_VERSION, MIGRATIONS } from '@/database/database';
 import { makeCompleteBreed } from '@/__tests__/fixtures';
-
-describe('buildBreedWhereClause', () => {
-  it('produces no WHERE clause for an empty query', () => {
-    const { sql, binds } = buildBreedWhereClause({});
-    expect(sql).toBe('');
-    expect(binds).toEqual([]);
-  });
-
-  it('searches the prebuilt haystack with a LIKE', () => {
-    const { sql, binds } = buildBreedWhereClause({ search: 'collie' });
-    expect(sql).toContain('search_haystack LIKE ?');
-    expect(binds).toEqual(['%collie%']);
-  });
-
-  it('lowercases the search term to match the stored haystack', () => {
-    const { binds } = buildBreedWhereClause({ search: 'COLLIE' });
-    expect(binds).toEqual(['%collie%']);
-  });
-
-  it('escapes LIKE wildcards so they are matched literally', () => {
-    const { binds } = buildBreedWhereClause({ search: '100%' });
-    // A user typing "%" should not turn into a match-everything wildcard.
-    expect(binds[0]).toBe('%100\\%%');
-  });
-
-  it('builds an IN clause with one placeholder per group', () => {
-    const { sql, binds } = buildBreedWhereClause({ groupIds: ['g1', 'g2', 'g3'] });
-    expect(sql).toContain('group_id IN (?, ?, ?)');
-    expect(binds).toEqual(['g1', 'g2', 'g3']);
-  });
-
-  it('combines every facet with AND', () => {
-    const { sql, binds } = buildBreedWhereClause({
-      search: 'ter',
-      groupIds: ['g1'],
-      sizeBands: ['large'],
-      coatCategories: ['wire'],
-      hypoallergenic: true,
-      traitKey: 'good_with_children',
-      traitMinScore: 4,
-    });
-
-    expect(sql.match(/AND/gu)).toHaveLength(5);
-    expect(sql).toContain('trait_good_with_children >= ?');
-    expect(binds).toEqual(['%ter%', 'g1', 'large', 'wire', 1, 4]);
-  });
-
-  it('maps a boolean hypoallergenic filter to SQLite 1/0', () => {
-    expect(buildBreedWhereClause({ hypoallergenic: false }).binds).toEqual([0]);
-    expect(buildBreedWhereClause({ hypoallergenic: true }).binds).toEqual([1]);
-  });
-
-  it('ignores a null hypoallergenic filter', () => {
-    expect(buildBreedWhereClause({ hypoallergenic: null }).sql).toBe('');
-  });
-
-  it('ignores a trait filter with no threshold', () => {
-    expect(buildBreedWhereClause({ traitKey: 'good_with_dogs', traitMinScore: null }).sql).toBe('');
-  });
-
-  it('only ever emits a known trait column name', () => {
-    // The column is chosen from a closed union, so user input cannot reach SQL.
-    const columns = (['good_with_children', 'good_with_dogs', 'good_with_strangers'] as const).map(
-      (key) => buildBreedWhereClause({ traitKey: key, traitMinScore: 3 }).sql,
-    );
-    expect(columns[0]).toContain('trait_good_with_children');
-    expect(columns[1]).toContain('trait_good_with_dogs');
-    expect(columns[2]).toContain('trait_good_with_strangers');
-  });
-});
-
-describe('escapeLikePattern', () => {
-  it('escapes the LIKE metacharacters', () => {
-    expect(escapeLikePattern('100%')).toBe('100\\%');
-    expect(escapeLikePattern('a_b')).toBe('a\\_b');
-    expect(escapeLikePattern('back\\slash')).toBe('back\\\\slash');
-  });
-
-  it('leaves ordinary text untouched', () => {
-    expect(escapeLikePattern('border collie')).toBe('border collie');
-  });
-});
 
 describe('row mapping', () => {
   const baseRow: BreedRow = {

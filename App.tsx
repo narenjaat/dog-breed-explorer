@@ -12,10 +12,10 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { RootNavigator } from '@/navigation/RootNavigator';
+import { ErrorBoundary } from '@/components/States';
+import { RootNavigator } from '@/navigation';
 import { store } from '@/store';
-import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
+import { ThemeProvider, useTheme } from '@/theme';
 
 /** Keeps the status bar legible against whichever theme is active. */
 function ThemedStatusBar(): React.ReactElement {
