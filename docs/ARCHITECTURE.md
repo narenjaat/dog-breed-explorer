@@ -109,7 +109,8 @@ a transaction.
 
 The central design decision is **which fields get their own column**. Anything
 the list screen filters, sorts or searches on is a scalar column with an index;
-everything else is JSON.
+everything else is JSON. (Today the list filters in a memoised selector; these
+columns keep the SQL path ready for scale. See DECISIONS.md §4.)
 
 | Column | Type | Purpose |
 |---|---|---|
@@ -137,7 +138,7 @@ everything else is JSON.
 
 **Why derived columns are persisted.** `size_band`, `coat_category` and
 `search_haystack` are computed once when a record is parsed, not on every
-render or keystroke. Persisting them means a filter is an indexed scalar
+render or keystroke. Persisting them means a filter can be an indexed scalar
 comparison instead of a scan that re-derives values for 283 rich objects.
 
 **Why `thumbnail_url` is denormalised.** The list needs exactly one image URL

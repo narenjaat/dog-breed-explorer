@@ -19,8 +19,9 @@ export interface Migration {
  * Design notes:
  *  - Scalar columns hold everything the *list* screen filters or sorts on
  *    (group_id, size_band, coat_category, hypoallergenic, the three filterable
- *    trait scores, search_haystack). These are indexed so filtering happens in
- *    SQLite rather than by scanning 283 hydrated objects in JS.
+ *    trait scores, search_haystack). These are indexed so filtering can move
+ *    into SQLite when the dataset outgrows memory. At 283 rows the list
+ *    filters in a memoised selector instead (see DECISIONS.md §4).
  *  - Rarely-queried nested structures (colors, sources, recognized_by,
  *    temperament, the full trait map) are stored as JSON text. Splitting them
  *    into child tables would add joins and write cost for data that is only
@@ -128,8 +129,10 @@ const MIGRATION_001: Migration = {
 
 export const MIGRATIONS: readonly Migration[] = [MIGRATION_001];
 
-export const LATEST_SCHEMA_VERSION: number =
-  MIGRATIONS.reduce((max, migration) => Math.max(max, migration.version), 0);
+export const LATEST_SCHEMA_VERSION: number = MIGRATIONS.reduce(
+  (max, migration) => Math.max(max, migration.version),
+  0,
+);
 
 /**
  * Applies any migrations newer than the database's current `user_version`.

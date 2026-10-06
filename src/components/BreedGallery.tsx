@@ -27,6 +27,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import type { Theme } from '@/theme';
 import type { BreedImage } from '@/types/domain';
 import { EmptyState } from '@/components/States';
+import { toSafeExternalUrl } from '@/utils/url';
 
 export interface BreedGalleryProps {
   readonly images: readonly BreedImage[];
@@ -42,17 +43,25 @@ interface SlideProps {
   readonly total: number;
 }
 
+/** Opens a vetted web URL. A device with no browser rejects; that is not a crash. */
+function openExternal(url: string): void {
+  Linking.openURL(url).catch(() => undefined);
+}
+
 function AttributionRow({ image }: { readonly image: BreedImage }): React.ReactElement | null {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const { author, license, source, sourceUrl, licenseUrl } = image.attribution;
+  const { author, license, source } = image.attribution;
+  // API-supplied links are untrusted: anything but http(s) renders as plain text.
+  const sourceUrl = toSafeExternalUrl(image.attribution.sourceUrl);
+  const licenseUrl = toSafeExternalUrl(image.attribution.licenseUrl);
 
   const handleOpenSource = useCallback(() => {
-    if (sourceUrl !== null) void Linking.openURL(sourceUrl);
+    if (sourceUrl !== null) openExternal(sourceUrl);
   }, [sourceUrl]);
 
   const handleOpenLicense = useCallback(() => {
-    if (licenseUrl !== null) void Linking.openURL(licenseUrl);
+    if (licenseUrl !== null) openExternal(licenseUrl);
   }, [licenseUrl]);
 
   // Nothing to attribute (rare, but the field is optional in the schema).
@@ -76,9 +85,7 @@ function AttributionRow({ image }: { readonly image: BreedImage }): React.ReactE
             accessibilityLabel={`Licence ${license}`}
             hitSlop={6}
           >
-            <Text
-              style={[styles.attributionText, licenseUrl !== null && styles.attributionLink]}
-            >
+            <Text style={[styles.attributionText, licenseUrl !== null && styles.attributionLink]}>
               {license}
             </Text>
           </Pressable>
@@ -92,9 +99,7 @@ function AttributionRow({ image }: { readonly image: BreedImage }): React.ReactE
             accessibilityLabel={`Source ${source}`}
             hitSlop={6}
           >
-            <Text
-              style={[styles.attributionText, sourceUrl !== null && styles.attributionLink]}
-            >
+            <Text style={[styles.attributionText, sourceUrl !== null && styles.attributionLink]}>
               {source.replace(/_/gu, ' ')}
             </Text>
           </Pressable>
@@ -227,10 +232,7 @@ function BreedGalleryComponent({ images, breedName }: BreedGalleryProps): React.
 
       <View style={styles.dots}>
         {images.map((image, index) => (
-          <View
-            key={image.id}
-            style={[styles.dot, index === activeIndex && styles.dotActive]}
-          />
+          <View key={image.id} style={[styles.dot, index === activeIndex && styles.dotActive]} />
         ))}
       </View>
     </View>

@@ -10,6 +10,7 @@ import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { reportError } from '@/services/crashReporter';
 import { lightTheme } from '@/theme';
 
 export interface ErrorBoundaryProps {
@@ -33,9 +34,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    // In a real deployment this is where Sentry/Crashlytics would be called.
-    // eslint-disable-next-line no-console
-    console.error(`[ErrorBoundary] ${this.props.featureName ?? 'app'} crashed`, error, info);
+    reportError(error, {
+      feature: this.props.featureName ?? 'app',
+      componentStack: info.componentStack,
+    });
     this.props.onError?.(error, info);
   }
 
@@ -58,9 +60,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             ? 'This part of the app ran into an unexpected problem.'
             : `We could not display ${featureName}.`}
         </Text>
-        <Text style={styles.detail} numberOfLines={3}>
-          {error.message}
-        </Text>
+        {/* Raw messages can carry internals (URLs, SQL, file paths); users
+            only see them in development builds. */}
+        {__DEV__ ? (
+          <Text style={styles.detail} numberOfLines={3}>
+            {error.message}
+          </Text>
+        ) : null}
         <Pressable
           onPress={this.handleReset}
           style={styles.button}

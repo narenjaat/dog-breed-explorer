@@ -28,8 +28,6 @@ module.exports = (api) => {
           ],
         },
       ],
-      // Must be last.
-      'react-native-worklets/plugin',
     ].filter(Boolean),
   };
 };

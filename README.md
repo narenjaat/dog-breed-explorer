@@ -5,7 +5,7 @@ An offline-first React Native app for browsing all 283 breeds from the
 React Native assessment.
 
 Built with React Native 0.86 (bare CLI, New Architecture) · TypeScript strict · Redux Toolkit ·
-SQLite · TanStack Query · React Navigation.
+SQLite · React Navigation.
 
 ---
 
@@ -19,7 +19,8 @@ npm start                # Metro, in its own terminal
 npm run ios              # or: npm run android
 ```
 
-`npm test` runs the suite (197 tests). `npm run typecheck` runs `tsc --noEmit`.
+`npm test` runs the suite (211 tests). `npm run typecheck` runs `tsc --noEmit`, and
+`npm run lint` / `npm run format:check` run ESLint and Prettier, as CI does.
 
 **Requirements:** Node 22.11+, and Xcode + CocoaPods (iOS) or Android Studio +
 JDK 17 (Android). The native projects live in `ios/` and `android/` and are
@@ -108,17 +109,17 @@ changed", which a 283-row list needs.
 
 **Why SQLite?** AsyncStorage would mean deserialising all 283 rich records to
 filter any of them, and rewriting the entire blob to update one breed. SQLite
-makes filtering an indexed query and a sync a transactional upsert. Columns the
-list filters on (`group_id`, `size_band`, `coat_category`, `hypoallergenic`,
+makes a sync a transactional upsert and leaves filtering free to move into an
+indexed query as the dataset grows. Columns the list filters on (`group_id`,
+`size_band`, `coat_category`, `hypoallergenic`,
 three trait scores) are scalar and indexed; rarely-queried nested structures
 are JSON.
 
-**Why TanStack Query — and why only for details?** React Query is an in-memory
-server-state cache. It handles the single-breed detail request well. The
-catalogue is *not* in it: that data must survive process death, support indexed
-multi-facet filtering, and be written transactionally from a partial result —
-all database work. Query retries are disabled because the API layer already
-retries with backoff.
+**Why filter in a selector, not in SQL?** At 283 rows a memoised
+`createSelector` pass over pre-derived fields takes well under a frame, with no
+async hop and no stale-result race. The SQL filter (`buildBreedWhereClause`
+over indexed columns) is built and tested, ready to replace the selector once
+the dataset outgrows memory. See [DECISIONS.md §4](docs/DECISIONS.md).
 
 **Why React Navigation?** Native stack navigator with a single
 `RootStackParamList` as the source of truth, so a param rename is a compile
@@ -193,10 +194,10 @@ Measured figures and the commands that produced them are in
 
 | Metric | Value |
 |---|---|
-| Android JS bundle (release) | **3.44 MB** Hermes bytecode, 1,407 modules |
+| Android JS bundle (release) | **1.43 MB** minified JS / 2.09 MB Hermes bytecode, 909 modules (minified was 2.38 MB before removing unused dependencies) |
 | Full sync, 6 pages / 283 breeds | **~4.4s** (concurrent), 0 duplicates, 0 parse failures |
 | Partial failure (2 of 6 pages down) | **187 breeds recovered**, cache preserved |
-| Test suite | **197 tests, 9 suites** |
+| Test suite | **211 tests, 10 suites** |
 
 Verified running on **both platforms**: iOS 26 simulator (iPhone 17 Pro) and
 Android emulator (API 36), from the same source with no platform branching.
@@ -248,9 +249,11 @@ as tappable links:
 ## Testing
 
 ```bash
-npm test                 # 197 tests, 9 suites
+npm test                 # 211 tests, 10 suites
 npm run test:coverage
 npm run typecheck        # tsc --noEmit, strict
+npm run lint             # ESLint (@react-native config), zero warnings allowed
+npm run format:check     # Prettier
 ```
 
 | Suite | Covers |
@@ -264,6 +267,7 @@ npm run typecheck        # tsc --noEmit, strict
 | `filters` | Search, every facet, composed filters, grouping, selector memoisation |
 | `derive` | Size-band and coat-category boundaries |
 | `ui` | Trait scales, banner decision table, formatters, relative time |
+| `url` | External-link allowlist: only http(s) leaves the app |
 
 The most load-bearing test is in `upsert.test.ts`: it runs the shipped
 migrations and upsert statement against a real SQL engine and asserts that a
@@ -285,8 +289,8 @@ src/
 ├── store/        slices/ (breeds, filters, sync), memoised selectors
 ├── theme/        tokens, light/dark palettes, provider
 ├── types/        api (wire), domain, sync
-├── utils/        guards, derive, format, text
-└── __tests__/    9 suites
+├── utils/        guards, derive, format, text, url
+└── __tests__/    10 suites
 docs/             APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · SCREENSHOTS
 ```
 
@@ -300,7 +304,51 @@ docs/             APPROACH · ARCHITECTURE · DECISIONS · PERFORMANCE · SCREEN
   guards in `src/utils/guards.ts`.
 - Business logic and database access stay out of UI components.
 - Error boundaries around the app root, each screen, and the gallery
-  separately.
+  separately. Crashes go through one seam, `src/services/crashReporter.ts`,
+  where Sentry or Crashlytics plugs in; raw error text is shown only in
+  development builds.
+- API-supplied links are untrusted: only `http(s)` URLs reach
+  `Linking.openURL` (`src/utils/url.ts`).
+- CI (`.github/workflows/ci.yml`) runs lint, format check, typecheck, tests
+  and a release-mode Android bundle on every pull request.
 - Accessibility: labelled controls, `accessibilityRole`/`State` on interactive
   elements, trait scales announced as "Energy, 3 out of 5", 44pt minimum touch
   targets, live regions on status text.
+
+---
+
+## Release
+
+**Android signing.** `android/app/build.gradle` reads the upload key from
+Gradle properties, so no keystore or password is ever committed:
+
+```properties
+# ~/.gradle/gradle.properties (local), or ORG_GRADLE_PROJECT_<name> env vars in CI
+DOGBREEDS_UPLOAD_STORE_FILE=/absolute/path/to/upload.keystore
+DOGBREEDS_UPLOAD_STORE_PASSWORD=...
+DOGBREEDS_UPLOAD_KEY_ALIAS=upload
+DOGBREEDS_UPLOAD_KEY_PASSWORD=...
+```
+
+Without them, a local release build falls back to the debug key so it still
+runs, but that build cannot be uploaded to Play. With Play App Signing, this
+is only the upload key: Google holds the app-signing key, so a leaked upload
+key can be revoked and replaced.
+
+**iOS signing.** Certificates and profiles are kept out of the repo (the
+`.gitignore` already blocks `*.p12`, `*.p8` and `*.mobileprovision`). Planned:
+`fastlane match`, with certificates in a private encrypted repo.
+
+**Planned pipeline (Fastlane).** CI already gates every PR. The next step is
+a release job on tags:
+
+1. `fastlane android beta`: bump `versionCode` from the CI build number,
+   `bundleRelease`, upload the AAB to the Play internal track.
+2. `fastlane ios beta`: `match`, bump the build number, `gym`, upload to
+   TestFlight.
+3. Promote to production with a staged rollout (for example 10%, then 50%,
+   then 100%), watching crash-free sessions between steps.
+
+Secrets live in the CI secret store and reach Gradle and Fastlane as
+environment variables.
+

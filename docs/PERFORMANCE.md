@@ -14,7 +14,7 @@
 | List scroll | 60fps sustained | TODO — capture on device |
 | Memory under normal use | < 150MB | TODO — capture on device |
 | Full sync (6 pages, 283 breeds) | — | **Measured: ~4.4s** |
-| Android JS bundle | — | **Measured: 3.44 MB** |
+| Android JS bundle | — | **Measured: 1.43 MB** minified JS, 2.09 MB Hermes bytecode |
 
 ---
 
@@ -26,13 +26,13 @@
 npm run bundle:analyze
 ```
 
-Recorded 2026-10-05, React Native 0.86.3 CLI, `react-native bundle
+Recorded 2026-10-06, React Native 0.86.3 CLI, `react-native bundle
 --platform android --dev false`:
 
 ```
 JS bundles
 ------------------------------------------------------------
-     2.38 MB  index.android.bundle
+     1.43 MB  index.android.bundle
 
 Assets
 ------------------------------------------------------------
@@ -40,13 +40,17 @@ Assets
 
 Total
 ------------------------------------------------------------
-     2.39 MB  19 file(s)
+     1.43 MB  19 file(s)
 ```
 
-- **2.38 MB** minified JS, Android, release. This is the input to Hermes; the
-  `.hbc` bytecode Gradle compiles from it at build time is larger. The earlier
-  Expo-era figure (3.44 MB) was Hermes bytecode, so the two are not directly
-  comparable.
+Removing three unused dependencies (TanStack Query, Reanimated with
+Worklets, AsyncStorage) took the minified bundle from 2.38 MB to 1.43 MB
+(909 modules), with no change in behaviour.
+
+- **1.43 MB** minified JS, Android, release. This is the input to Hermes;
+  compiled with the bundled `hermesc -O`, it is **2.09 MB** of bytecode. The
+  Expo-era figure below (3.44 MB) was also Hermes bytecode, but from a
+  different toolchain and dependency set, so treat it as a rough reference.
 - Assets are only React Navigation's bundled icons; this app ships no bundled
   imagery — all breed photos are remote and cached at runtime.
 

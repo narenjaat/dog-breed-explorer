@@ -1,10 +1,12 @@
 /**
  * Breed persistence and querying.
  *
- * Filtering happens here in SQL rather than in a JS pass over hydrated
- * objects: the indexed scalar columns mean a multi-facet filter touches only
- * matching rows, and the UI never holds a second copy of the dataset just to
- * filter it.
+ * `buildBreedWhereClause` translates the UI's filters into SQL over indexed
+ * scalar columns, so a multi-facet filter touches only matching rows. The list
+ * does not use it yet: at 283 rows it filters in a memoised selector, and
+ * `queryBreeds()` is called unfiltered to hydrate Redux. This is the path the
+ * list moves to once the dataset no longer fits comfortably in memory (see
+ * DECISIONS.md §4).
  */
 
 import { getDatabase } from '@/database/database';
@@ -275,7 +277,7 @@ async function loadImagesFor(
 }
 
 /**
- * Queries breeds with filters applied in SQL.
+ * Queries breeds, with optional filters applied in SQL.
  *
  * Images are deliberately NOT loaded here: the list only needs
  * `thumbnail_url`, and hydrating ~2,400 image rows for a 283-row list would be
@@ -296,10 +298,7 @@ export async function queryBreeds(query: BreedQuery = {}): Promise<readonly Bree
 /** Loads one breed with its images, for the detail screen. */
 export async function getBreedById(id: string): Promise<Breed | null> {
   const db = await getDatabase();
-  const row = await db.getFirst<BreedRow>(
-    `SELECT ${BREED_COLUMNS} FROM breeds WHERE id = ?`,
-    [id],
-  );
+  const row = await db.getFirst<BreedRow>(`SELECT ${BREED_COLUMNS} FROM breeds WHERE id = ?`, [id]);
   if (row === null) return null;
 
   const images = await loadImagesFor(db, [id]);

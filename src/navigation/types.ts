@@ -17,8 +17,10 @@ export type RootStackParamList = {
   };
 };
 
-export type RootStackScreenProps<TRoute extends keyof RootStackParamList> =
-  NativeStackScreenProps<RootStackParamList, TRoute>;
+export type RootStackScreenProps<TRoute extends keyof RootStackParamList> = NativeStackScreenProps<
+  RootStackParamList,
+  TRoute
+>;
 
 export type BreedListScreenProps = RootStackScreenProps<'BreedList'>;
 export type BreedDetailsScreenProps = RootStackScreenProps<'BreedDetails'>;
@@ -27,7 +29,6 @@ export type BreedDetailsScreenProps = RootStackScreenProps<'BreedDetails'>;
  * Makes `useNavigation()` type-safe app-wide without per-call generics.
  */
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
   }

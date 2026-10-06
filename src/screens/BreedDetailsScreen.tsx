@@ -6,8 +6,8 @@
  * rather than letting "null"/"undefined" reach the UI.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BreedGallery } from '@/components/BreedGallery';
@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/States';
 import { ExerciseScale, TraitScale } from '@/components/TraitScale';
 import { useBreedDetails } from '@/hooks/useBreedDetails';
 import { useAppSelector } from '@/store';
-import { selectGroupsById } from '@/store/selectors';
+import { selectGroupsById, selectIsOnline } from '@/store/selectors';
 import { MIN_TOUCH_TARGET } from '@/theme';
 import type { Theme } from '@/theme';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -61,7 +61,11 @@ function FactRow({ label, value }: FactRowProps): React.ReactElement {
   const isUnknown = value === UNKNOWN_PLACEHOLDER;
 
   return (
-    <View style={styles.factRow} accessible accessibilityLabel={`${label}: ${isUnknown ? 'not recorded' : value}`}>
+    <View
+      style={styles.factRow}
+      accessible
+      accessibilityLabel={`${label}: ${isUnknown ? 'not recorded' : value}`}
+    >
       <Text style={styles.factLabel}>{label}</Text>
       <Text style={[styles.factValue, isUnknown && styles.factValueUnknown]}>{value}</Text>
     </View>
@@ -201,13 +205,22 @@ export function BreedDetailsScreen({ route }: BreedDetailsScreenProps): React.Re
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabName>('Overview');
-  const { breed, isLoading, refreshError } = useBreedDetails(breedId);
+  const isOnline = useAppSelector(selectIsOnline);
+  const { breed, isLoading, isRefreshing, refreshError, refresh } = useBreedDetails(breedId);
+
+  // Show cached content first, then refresh it from the network. `refresh`
+  // changes identity with connectivity, so this also re-runs on the
+  // offline -> online edge while the screen is open.
+  useEffect(() => {
+    if (isOnline) refresh();
+  }, [isOnline, refresh]);
 
   const handleTabPress = useCallback((tab: TabName) => {
     setActiveTab(tab);
   }, []);
 
-  if (isLoading) {
+  // Not cached but a fetch is underway: still loading, not "unavailable".
+  if (isLoading || (breed === null && isRefreshing)) {
     return (
       <View style={styles.container}>
         <EmptyState title="Loading…" message={`Fetching details for ${breedName}.`} />
@@ -220,7 +233,13 @@ export function BreedDetailsScreen({ route }: BreedDetailsScreenProps): React.Re
       <View style={styles.container}>
         <EmptyState
           title="Breed unavailable"
-          message={`${breedName} is not in the local cache, and it could not be fetched. Reconnect and refresh the list.`}
+          message={
+            isOnline
+              ? `${breedName} is not in the local cache, and it could not be fetched.`
+              : `${breedName} is not in the local cache. Reconnect to load it.`
+          }
+          actionLabel={isOnline ? 'Retry' : undefined}
+          onAction={isOnline ? refresh : undefined}
         />
       </View>
     );
@@ -231,6 +250,17 @@ export function BreedDetailsScreen({ route }: BreedDetailsScreenProps): React.Re
       {refreshError === null ? null : (
         <View style={styles.noticeBar} accessibilityRole="alert">
           <Text style={styles.noticeText}>{refreshError}</Text>
+          {isOnline ? (
+            <Pressable
+              onPress={refresh}
+              style={styles.noticeAction}
+              accessibilityRole="button"
+              accessibilityLabel="Retry refreshing this breed"
+              hitSlop={8}
+            >
+              <Text style={styles.noticeActionText}>Retry</Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
 
@@ -249,6 +279,15 @@ export function BreedDetailsScreen({ route }: BreedDetailsScreenProps): React.Re
       ) : (
         <ScrollView
           style={styles.scroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refresh}
+              tintColor={theme.colors.accent}
+              colors={[theme.colors.accent]}
+              progressBackgroundColor={theme.colors.surface}
+            />
+          }
           contentContainerStyle={{ paddingBottom: insets.bottom + theme.spacing.xxl }}
         >
           {activeTab === 'Overview' ? <OverviewTab breed={breed} /> : <TraitsTab breed={breed} />}
@@ -268,13 +307,28 @@ function createStyles(theme: Theme) {
       flex: 1,
     },
     noticeBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.md,
       paddingHorizontal: theme.spacing.lg,
       paddingVertical: theme.spacing.sm,
       backgroundColor: theme.colors.warningSurface,
     },
     noticeText: {
+      flex: 1,
       fontSize: theme.typography.caption.fontSize,
       color: theme.colors.warningText,
+    },
+    noticeAction: {
+      minHeight: MIN_TOUCH_TARGET,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.sm,
+    },
+    noticeActionText: {
+      fontSize: theme.typography.caption.fontSize,
+      fontWeight: '700',
+      color: theme.colors.warningText,
+      textDecorationLine: 'underline',
     },
     tabBar: {
       flexDirection: 'row',

@@ -45,7 +45,9 @@ export function useBreedDetails(breedId: string): UseBreedDetailsResult {
   const loadFromDatabase = useCallback(async (): Promise<Breed | null> => {
     try {
       const stored = await getBreedById(breedId);
-      if (mountedRef.current && stored !== null) setDbBreed(stored);
+      // A network refresh that resolved first holds newer data than this
+      // read, so the database copy only fills an empty slot.
+      if (mountedRef.current && stored !== null) setDbBreed((current) => current ?? stored);
       return stored;
     } catch {
       // The Redux copy is still usable; it just has no gallery.

@@ -31,8 +31,9 @@ normalisation and selector story is the actual requirement.
 this, but a heavy dependency and its own sync model).
 
 **Why.** AsyncStorage would mean deserialising all 283 rich records to filter
-any of them, and rewriting the whole blob to update one breed. With SQLite,
-filtering is an indexed query and a sync is a transactional upsert.
+any of them, and rewriting the whole blob to update one breed. With SQLite, a
+sync is a transactional upsert, and filtering can become an indexed query
+when the dataset outgrows memory (see §4).
 WatermelonDB is the better tool at 10x this scale; here it would be a large
 dependency plus a second sync abstraction layered over the one the brief asks
 me to build.
@@ -60,21 +61,32 @@ not linger.
 
 ---
 
-## 4. React Query is scoped to detail requests only
+## 4. Filtering runs in a memoised selector; the SQL path is ready for scale
 
-**Decision.** TanStack Query handles the single-breed detail request lifecycle.
-The 283-breed catalogue is owned by the sync service and SQLite.
+**Decision.** At 283 breeds, the list filters in JS inside `createSelector`
+(`selectFilteredBreeds` in `src/store/selectors.ts`). The SQL equivalent,
+`buildBreedWhereClause` plus the indexed scalar columns, is built and unit
+tested but not wired to the list: `queryBreeds()` is called without filters
+to hydrate Redux.
 
-**Alternatives.** Putting everything in React Query with a persister.
+**Alternatives.** Running every filter change as a SQLite query.
 
-**Why.** React Query is an excellent *server-state cache*, but it is an
-in-memory cache with an optional persistence adapter. The catalogue must
-survive process death, support indexed multi-facet filtering, and be written
-transactionally from a partial result. That is a database's job. Using both
-tools for what each is good at beats forcing one to do both.
+**Why.** The whole catalogue is already in memory for the sectioned list, and
+a filter pass over 283 pre-derived records takes well under a frame. A SQL
+round trip per filter change would add an async hop, plus "latest request
+wins" handling to avoid a stale result overwriting a newer one, with no
+measurable gain at this size.
 
-Retries are disabled in the Query client: the API layer already retries with
-backoff, and layering a second policy would multiply the attempts.
+**When to switch.** At thousands of rows, or when the full dataset should no
+longer be held in memory, the list reads `queryBreeds(filters)` instead. The
+schema already supports it, because every filterable facet is an indexed
+scalar column.
+
+**Removed: TanStack Query.** An earlier draft planned React Query for the
+detail request. The detail screen instead uses `useBreedDetails`, which reads
+SQLite first (the only copy carrying images) and refreshes from the network
+when online. A second cache layer added nothing, so the dependency was
+dropped, along with unused AsyncStorage and Reanimated.
 
 ---
 
